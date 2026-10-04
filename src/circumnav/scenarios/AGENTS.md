@@ -35,6 +35,8 @@ defaults outside the dataclass.
   (both enforced with `ValueError`). `run()` returns
   `(FleetResult, tuple[controllers])`, running each vehicle through
   `base.run()` from its own pose. Valid only because vehicles do not interact.
+- `neighbour_sensor(max_range=None)` builds the `NeighbourSensor` from `base.sensor_range`
+  and `base.check_occlusion`; visibility is analysis only.
 - Do not add coupling by looping `base.run()`; it needs a synchronous loop.
 
 ## Adding a scenario

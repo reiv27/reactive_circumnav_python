@@ -1,7 +1,7 @@
 # tests/
 
 Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider`
-(104 tests, ~40 s). One file per module:
+(116 tests, ~40 s). One file per module:
 
 | file | covers |
 |---|---|
@@ -14,6 +14,7 @@ Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no
 | `test_delayed_controller.py` | state shift, `time` not delayed, forwarding, scenario wrapping |
 | `test_simulation.py` | engine timing and results |
 | `test_fleet.py` | start poses on the equidistant curve, `FleetScenario` validation, per-vehicle equality with a single run, `FleetResult`, separation metrics |
+| `test_neighbour_visibility.py` | `NeighbourSensor` (range, occlusion), visibility arrays, dropout metrics, ellipse fleets |
 | `test_scenarios.py` | scenario assembly and validation |
 
 ## Writing tests

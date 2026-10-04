@@ -11,6 +11,12 @@
   no angular-resolution parameter exists. Occlusion includes self-occlusion (the
   far side of a solid disk/ellipse is not visible).
 
+## neighbours.py
+- `NeighbourSensor(max_range, check_occlusion=True)`: `in_range`, `occluded`
+  (an obstacle body crosses the segment, via `first_intersection`), `sees`,
+  `visible_neighbours(index, positions, obstacles)`. Vehicles are points and never
+  hide each other. Pure geometry; not used by the control law yet.
+
 ## Invariants
 - `None` means "nothing in range / visible". Never return a point at maximum range.
 - The sensor knows nothing about modes, control or time.

@@ -13,10 +13,17 @@ Reads `SimulationResult` and controller logs. **Never changes the dynamics.**
   closest pair) and `nearest_neighbour_distance(fleet)` `(robots, samples)`;
   vehicles are points, `inf` for a single vehicle.
 
+- `neighbour_visibility(fleet, obstacles, sensor)` -> `NeighbourVisibility`
+  (`in_range`, `visible`, derived `occluded`, `visible_count`; arrays
+  `(samples, robots, robots)`, symmetric, empty diagonal);
+  `neighbour_visibility_metrics` -> seeing fraction, mean visible count,
+  pair-level dropout events (visible -> hidden while in range), occluded fraction.
+
 ## fleet_animation.py
 - `build_fleet_animation(fleet, controllers, obstacles, settings)` and
   `save_fleet_figure(...)`: one map with a colour and triangle per vehicle,
-  `d_R(t)` of every vehicle, distance to the nearest neighbour. Reuses the private
+  `d_R(t)` of every vehicle, distance to the nearest neighbour, neighbours in line
+  of sight; green links = visible, dotted red = in range but hidden. Reuses the private
   helpers of `animation.py`. Save with `save_reactive_animation`.
 
 ## animation.py

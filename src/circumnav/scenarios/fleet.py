@@ -2,7 +2,9 @@
 
 The vehicles do not see, hear or avoid each other: each runs its own
 :class:`ReactiveCircumnavScenario` from a different point of the same
-equidistant curve. Because there is no coupling, simulating them one after
+equidistant curve. Neighbour visibility (range plus occlusion by the obstacle body) is
+computed after the fact, for analysis; the control law does not use it. Because
+there is no coupling, simulating them one after
 another is exactly equivalent to simulating them together. Any interaction
 (vehicles as obstacles, communication) needs a synchronous multi-vehicle loop
 that reads all states at one instant before any controller runs.
@@ -20,6 +22,7 @@ from circumnav.controllers.reactive import ReactiveCircumnavController
 from circumnav.models.dubins import DubinsState
 from circumnav.models.obstacles import Obstacle
 from circumnav.scenarios.reactive import ReactiveCircumnavScenario
+from circumnav.sensors.neighbours import NeighbourSensor
 from circumnav.simulation.result import FleetResult
 
 _CURVE_SAMPLES = 4000
@@ -120,6 +123,14 @@ class FleetScenario:
                 initial_heading=pose.heading,
             )
             for pose in self.start_poses
+        )
+
+    def neighbour_sensor(self, max_range: float | None = None) -> NeighbourSensor:
+        """Line-of-sight sensor between vehicles; the obstacle sensor's range by default."""
+
+        return NeighbourSensor(
+            max_range=self.base.sensor_range if max_range is None else max_range,
+            check_occlusion=self.base.check_occlusion,
         )
 
     def build_obstacles(self) -> tuple[Obstacle, ...]:

@@ -399,6 +399,19 @@ closest pair; vehicles are points) and `nearest_neighbour_distance(fleet)`.
 circumnav-fleet-demo --robots 10 --animate fleet.mp4 --figure fleet.png
 ```
 
+**Neighbours dropping out of sight.** A `NeighbourSensor` (`sensors/neighbours.py`)
+decides whether one vehicle sees another: within `max_range` (by default the
+obstacle sensor's `R_s`) and no obstacle body on the segment between them. On a
+convex obstacle neighbours disappear behind the body as the curve turns. With four
+vehicles on the 6×3 ellipse each one sees two neighbours, then one, about every
+6 s; with two or three vehicles they are mostly out of range or hidden.
+`neighbour_visibility(fleet, obstacles, sensor)` returns `in_range` and `visible`
+arrays `(samples, robots, robots)`; `neighbour_visibility_metrics` summarises time
+seeing someone, dropout events and the share of in-range time hidden by the body.
+The animation draws a green link between vehicles in line of sight and a dotted red
+link between those that are in range but hidden. This is analysis only — the
+control law does not use it yet.
+
 Because the vehicles do not interact, running them one after another is exactly
 equivalent to running them together. Anything coupled (vehicles seen as obstacles,
 communication) needs a synchronous multi-vehicle loop that reads all states at one
@@ -552,7 +565,7 @@ implement yet.
 |---|---|
 | `circumnav-reactive-demo` | one run of the reactive law, prints a summary, optional `.npz` / animation |
 | `circumnav-heading-demo` | baseline heading-hold run |
-| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--figure`, `--animate` |
+| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--neighbour-range`, `--figure`, `--animate` |
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 
@@ -611,7 +624,7 @@ does.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 ```
 
-104 tests, about 40 seconds. They cover the plant, obstacles, sensor, controller,
+116 tests, about 40 seconds. They cover the plant, obstacles, sensor, controller,
 loop, scenarios, actuators and delays.
 
 ## Layout
@@ -619,7 +632,7 @@ loop, scenarios, actuators and delays.
 ```
 src/circumnav/
 ├── models/        Dubins kinematics, actuators (ideal, delay, lag), obstacle geometry
-├── sensors/       measurement type, circular visibility sensor
+├── sensors/       measurement type, circular visibility sensor, neighbour line of sight
 ├── controllers/   controller interface, heading controller, reactive law, delay wrapper
 ├── simulation/    sampled-data loop (zero-order hold) and result log
 ├── scenarios/     reproducible experiment configurations (single vehicle, fleet)

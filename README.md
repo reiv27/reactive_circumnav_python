@@ -402,14 +402,19 @@ circumnav-fleet-demo --robots 10 --animate fleet.mp4 --figure fleet.png
 **Neighbours dropping out of sight.** A `NeighbourSensor` (`sensors/neighbours.py`)
 decides whether one vehicle sees another: within `max_range` (by default the
 obstacle sensor's `R_s`) and no obstacle body on the segment between them. On a
-convex obstacle neighbours disappear behind the body as the curve turns. With four
-vehicles on the 6×3 ellipse each one sees two neighbours, then one, about every
-6 s; with two or three vehicles they are mostly out of range or hidden.
+convex obstacle neighbours disappear behind the body as the curve turns. The fleet demo uses a 7×3 ellipse (`--semi-axes`), elongated so that a neighbour
+stays hidden for longer: with four vehicles each one loses each adjacent neighbour
+for ≈ 4 s at a time (≈ 2.4 s on the 6×3 ellipse). Part of that is the range limit
+`R_s = 12 m`; raise `--neighbour-range` to isolate the occlusion by the body. The
+diagonal neighbour is always out of range. The demo shows one *focus* vehicle (`--focus`,
+red, with the side panels); the others are light blue.
 `neighbour_visibility(fleet, obstacles, sensor)` returns `in_range` and `visible`
 arrays `(samples, robots, robots)`; `neighbour_visibility_metrics` summarises time
 seeing someone, dropout events and the share of in-range time hidden by the body.
-The animation draws a green link between vehicles in line of sight and a dotted red
-link between those that are in range but hidden. This is analysis only — the
+The animation draws, for the focus vehicle, a green link to each neighbour in line
+of sight and a dotted orange link to those in range but hidden, and a per-neighbour
+timeline (visible, hidden by the body, out of range). `hidden_episode_durations`
+measures how long each loss of sight lasts. This is analysis only — the
 control law does not use it yet.
 
 Because the vehicles do not interact, running them one after another is exactly
@@ -565,7 +570,7 @@ implement yet.
 |---|---|
 | `circumnav-reactive-demo` | one run of the reactive law, prints a summary, optional `.npz` / animation |
 | `circumnav-heading-demo` | baseline heading-hold run |
-| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--neighbour-range`, `--figure`, `--animate` |
+| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--semi-axes`, `--focus`, `--neighbour-range`, `--figure`, `--animate` |
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 
@@ -624,7 +629,7 @@ does.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 ```
 
-116 tests, about 40 seconds. They cover the plant, obstacles, sensor, controller,
+119 tests, about 50 seconds. They cover the plant, obstacles, sensor, controller,
 loop, scenarios, actuators and delays.
 
 ## Layout

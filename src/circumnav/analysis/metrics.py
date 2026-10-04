@@ -208,3 +208,31 @@ def neighbour_visibility_metrics(
             else 0.0
         ),
     )
+
+
+def hidden_episode_durations(
+    visibility: NeighbourVisibility,
+    time: NDArray[np.float64],
+    observer: int,
+    neighbour: int,
+) -> NDArray[np.float64]:
+    """Lengths in seconds of the stretches when ``neighbour`` is not visible.
+
+    A stretch counts whether the neighbour is out of range or behind an
+    obstacle. Stretches cut off by the start or end of the run are included at
+    their truncated length.
+    """
+
+    hidden = ~visibility.visible[:, observer, neighbour]
+    step = float(time[1] - time[0]) if time.size > 1 else 0.0
+    durations: list[float] = []
+    run = 0
+    for flag in hidden:
+        if flag:
+            run += 1
+        elif run:
+            durations.append(run * step)
+            run = 0
+    if run:
+        durations.append(run * step)
+    return np.array(durations, dtype=np.float64)

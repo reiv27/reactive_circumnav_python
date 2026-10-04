@@ -14,23 +14,35 @@ import numpy as np
 
 from circumnav.analysis.metrics import (
     fleet_separation_metrics,
+    hidden_episode_durations,
     neighbour_visibility,
     neighbour_visibility_metrics,
     obstacle_clearance_metrics,
 )
-from circumnav.examples.reactive_circumnav import build_obstacle
+from circumnav.models.obstacles import EllipseObstacle
 from circumnav.scenarios.fleet import FleetScenario
 from circumnav.scenarios.reactive import ReactiveCircumnavScenario
 
 
+#: Semi-axes of the fleet's ellipse. More elongated than the single-vehicle demo
+#: (6 x 3) so a neighbour stays hidden behind the body for longer.
+DEFAULT_SEMI_AXES = (7.0, 3.0)
+
+
 def build_fleet_scenario(
-    robot_count: int, duration: float, phase: float = 0.0
+    robot_count: int,
+    duration: float,
+    phase: float = 0.0,
+    semi_axes: tuple[float, float] = DEFAULT_SEMI_AXES,
 ) -> FleetScenario:
-    base = ReactiveCircumnavScenario(duration=duration)
-    base = replace(
-        base,
-        obstacles=build_obstacle("ellipse", base.rho_0, base.turning_radius),
+    ellipse = EllipseObstacle(
+        center=np.array([0.0, 0.0]),
+        semi_axis_x=semi_axes[0],
+        semi_axis_y=semi_axes[1],
+        obstacle_id=0,
+        angle=np.pi / 6.0,
     )
+    base = replace(ReactiveCircumnavScenario(duration=duration), obstacles=(ellipse,))
     return FleetScenario(base, robot_count=robot_count, phase=phase)
 
 
@@ -40,6 +52,11 @@ def main() -> None:
     parser.add_argument("--duration", type=float, default=60.0)
     parser.add_argument("--phase", type=float, default=0.0,
                         help="shift along the curve, as a fraction of its length")
+    parser.add_argument("--semi-axes", type=float, nargs=2,
+                        default=DEFAULT_SEMI_AXES, metavar=("A", "B"),
+                        help="ellipse semi-axes in metres (default: 7 3)")
+    parser.add_argument("--focus", type=int, default=0,
+                        help="vehicle drawn red, shown in the panels (default 0)")
     parser.add_argument("--neighbour-range", type=float, default=None,
                         help="line-of-sight range between vehicles "
                         "(default: the obstacle sensor range)")
@@ -51,7 +68,8 @@ def main() -> None:
 
     try:
         scenario = build_fleet_scenario(
-            arguments.robots, arguments.duration, arguments.phase
+            arguments.robots, arguments.duration, arguments.phase,
+            tuple(arguments.semi_axes),
         )
         fleet, controllers = scenario.run()
     except ValueError as error:
@@ -83,6 +101,22 @@ def main() -> None:
     print(f"dropout events:       {seen.dropout_events} (pair-level)")
     print("time seeing someone:  "
           + ", ".join(f"{100.0 * f:.0f} %" for f in seen.seeing_fraction))
+    if not 0 <= arguments.focus < fleet.robot_count:
+        raise SystemExit(f"error: --focus must be in [0, {fleet.robot_count - 1}]")
+    print(f"vehicle #{arguments.focus} loses sight of each neighbour:")
+    for other in range(fleet.robot_count):
+        if other == arguments.focus:
+            continue
+        episodes = hidden_episode_durations(
+            visibility, fleet.time, arguments.focus, other
+        )
+        hidden_time = float(episodes.sum())
+        longest = float(episodes.max()) if episodes.size else 0.0
+        mean = float(episodes.mean()) if episodes.size else 0.0
+        print(
+            f"  #{other}: hidden {100.0 * hidden_time / fleet.time[-1]:.0f} % of the run,"
+            f" {episodes.size} episodes, mean {mean:.1f} s, longest {longest:.1f} s"
+        )
 
     if arguments.figure is not None or arguments.animate is not None:
         from circumnav.analysis.animation import AnimationSettings, save_reactive_animation
@@ -94,7 +128,7 @@ def main() -> None:
         if arguments.figure is not None:
             save_fleet_figure(
                 fleet, controllers, obstacles, arguments.figure,
-                visibility=visibility,
+                visibility=visibility, focus=arguments.focus,
             )
             print(f"figure saved to:      {arguments.figure}")
         if arguments.animate is not None:
@@ -104,7 +138,7 @@ def main() -> None:
                     fps=arguments.animation_fps,
                     real_time_factor=arguments.animation_speed,
                 ),
-                visibility=visibility,
+                visibility=visibility, focus=arguments.focus,
             )
             save_reactive_animation(
                 fig, anim, arguments.animate, fps=arguments.animation_fps

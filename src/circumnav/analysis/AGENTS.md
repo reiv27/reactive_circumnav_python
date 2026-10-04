@@ -18,12 +18,16 @@ Reads `SimulationResult` and controller logs. **Never changes the dynamics.**
   `(samples, robots, robots)`, symmetric, empty diagonal);
   `neighbour_visibility_metrics` -> seeing fraction, mean visible count,
   pair-level dropout events (visible -> hidden while in range), occluded fraction.
+  `hidden_episode_durations(visibility, time, observer, neighbour)` -> lengths (s) of
+  not-visible stretches (out of range or behind a body; run ends included truncated).
 
 ## fleet_animation.py
 - `build_fleet_animation(fleet, controllers, obstacles, settings)` and
   `save_fleet_figure(...)`: one map with a colour and triangle per vehicle,
-  `d_R(t)` of every vehicle, distance to the nearest neighbour, neighbours in line
-  of sight; green links = visible, dotted red = in range but hidden. Reuses the private
+  focus vehicle only: red (others light blue); panels `d_R(t)`, distance to its
+  nearest neighbour, per-neighbour line-of-sight timeline (light blue visible,
+  orange hidden by the body, grey out of range); map links from the focus vehicle
+  (green visible, dotted orange hidden). `focus` argument. Reuses the private
   helpers of `animation.py`. Save with `save_reactive_animation`.
 
 ## animation.py

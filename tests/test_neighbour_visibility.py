@@ -149,3 +149,43 @@ def test_two_vehicles_on_opposite_sides_never_see_each_other():
     metrics = ellipse_fleet(2)
 
     assert metrics.mean_visible_count == 0.0
+
+
+def test_hidden_episodes_are_measured_in_seconds():
+    from circumnav.analysis.metrics import hidden_episode_durations
+
+    fleet = blinking_pair()
+    visibility = neighbour_visibility(
+        fleet, (BODY,), NeighbourSensor(max_range=20.0)
+    )
+
+    durations = hidden_episode_durations(visibility, fleet.time, 0, 1)
+
+    assert durations.tolist() == [1.0, 1.0]
+
+
+def test_a_neighbour_that_is_always_visible_has_no_hidden_episodes():
+    from circumnav.analysis.metrics import hidden_episode_durations
+
+    fleet = FleetResult((result_at([[-5, 3]] * 3), result_at([[5, 3]] * 3)))
+    visibility = neighbour_visibility(
+        fleet, (BODY,), NeighbourSensor(max_range=20.0)
+    )
+
+    assert hidden_episode_durations(visibility, fleet.time, 0, 1).size == 0
+
+
+def longest_hidden_episode(semi_axes):
+    from circumnav.analysis.metrics import hidden_episode_durations
+    from circumnav.examples.fleet_circumnav import build_fleet_scenario
+
+    scenario = build_fleet_scenario(4, 20.0, semi_axes=semi_axes)
+    fleet, _ = scenario.run()
+    visibility = neighbour_visibility(
+        fleet, scenario.build_obstacles(), scenario.neighbour_sensor()
+    )
+    return float(hidden_episode_durations(visibility, fleet.time, 0, 1).max())
+
+
+def test_a_more_elongated_ellipse_hides_the_neighbour_for_longer():
+    assert longest_hidden_episode((7.0, 3.0)) > longest_hidden_episode((6.0, 3.0))

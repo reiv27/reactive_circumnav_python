@@ -7,7 +7,7 @@ runnable as `PYTHONPATH=src python3 -m circumnav.examples.<module>`.
 |---|---|---|
 | `reactive_circumnav.py` | `circumnav-reactive-demo` | one run, summary, optional `.npz` and animation; `build_obstacle(shape, rho_0, turning_radius)` builds `circle / ellipse / wall / cluster` demo scenes (the ellipse is 6×3 at 30°) |
 | `heading_control.py` | `circumnav-heading-demo` | baseline heading hold |
-| `fleet_circumnav.py` | `circumnav-fleet-demo` | `--robots N` independent vehicles on the 6×3 ellipse, started on the equidistant curve; summary incl. neighbour visibility (`--neighbour-range`), `--figure`, `--animate` |
+| `fleet_circumnav.py` | `circumnav-fleet-demo` | `--robots N` independent vehicles on a 7×3 ellipse (`--semi-axes`), started on the equidistant curve; `--focus` vehicle in red; summary incl. neighbour visibility and hidden-episode lengths (`--neighbour-range`), `--figure`, `--animate` |
 | `delay_sweep.py` | `circumnav-delay-sweep` | one channel (`sensing`, `actuation`, `lag`) at a time, others zero; per point: settled `max|d_R|`, bias, RMS, relay flips per second, `max|s|`, lost fraction, G fraction, clearance, collision |
 | `delay_compare.py` | `circumnav-delay-compare` | one scene under baseline + each channel at the same value; mp4 per case, overlay and zoom figures |
 

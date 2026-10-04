@@ -1,7 +1,7 @@
 # tests/
 
 Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider`
-(116 tests, ~40 s). One file per module:
+(119 tests, ~50 s). One file per module:
 
 | file | covers |
 |---|---|

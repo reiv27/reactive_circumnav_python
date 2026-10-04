@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "reactive-circumnav-sim"
 version = "0.1.0"
 description = "Educational control-engineering simulator for Dubins vehicles"
-readme = "README_CONTROL_SIMULATOR.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "numpy>=1.21",
@@ -23,6 +23,8 @@ viz = [
 [project.scripts]
 circumnav-heading-demo = "circumnav.examples.heading_control:main"
 circumnav-reactive-demo = "circumnav.examples.reactive_circumnav:main"
+circumnav-delay-sweep = "circumnav.examples.delay_sweep:main"
+circumnav-delay-compare = "circumnav.examples.delay_compare:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

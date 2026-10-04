@@ -23,6 +23,7 @@ from matplotlib.patches import Polygon
 import numpy as np
 from numpy.typing import NDArray
 
+from circumnav.controllers.delayed import DelayedController
 from circumnav.controllers.reactive import CircumnavMode, ReactiveCircumnavController
 from circumnav.models.obstacles import Obstacle, minimum_equidistant_curvature
 from circumnav.simulation.result import SimulationResult
@@ -44,7 +45,7 @@ class AnimationSettings:
 
 def build_reactive_animation(
     result: SimulationResult,
-    controller: ReactiveCircumnavController,
+    controller: ReactiveCircumnavController | DelayedController,
     obstacles: Sequence[Obstacle],
     settings: AnimationSettings = AnimationSettings(),
 ) -> tuple[plt.Figure, animation.FuncAnimation]:

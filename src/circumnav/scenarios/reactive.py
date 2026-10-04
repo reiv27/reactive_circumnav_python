@@ -7,12 +7,23 @@ import math
 
 import numpy as np
 
+from circumnav.controllers.delayed import DelayedController
 from circumnav.controllers.reactive import (
     ReactiveCircumnavConfig,
     ReactiveCircumnavController,
 )
-from circumnav.models.actuator import IdealActuator
-from circumnav.models.dubins import DubinsLimits, DubinsModel, DubinsState
+from circumnav.models.actuator import (
+    Actuator,
+    DelayedActuator,
+    IdealActuator,
+    LagActuator,
+)
+from circumnav.models.dubins import (
+    DubinsCommand,
+    DubinsLimits,
+    DubinsModel,
+    DubinsState,
+)
 from circumnav.models.obstacles import (
     CircleObstacle,
     EllipseObstacle,
@@ -150,6 +161,14 @@ class ReactiveCircumnavScenario:
     max_yaw_rate: float = 2.0
     obstacles: tuple[Obstacle, ...] = DEFAULT_OBSTACLES
     require_feasible_turning: bool = True
+    #: tau_s: age of the state the controller perceives, in seconds. Must be
+    #: an exact multiple of control_period; see DelayedController.
+    sensing_delay: float = 0.0
+    #: tau_a (+ tau_c): pure delay between the request and its effect on the
+    #: plant. Must be an exact multiple of integration_step.
+    actuation_delay: float = 0.0
+    #: tau: time constant of a first-order lag on the applied command.
+    actuator_time_constant: float = 0.0
 
     @property
     def turning_radius(self) -> float:
@@ -186,6 +205,47 @@ class ReactiveCircumnavScenario:
 
         return minimum_equidistant_curvature(self.obstacles, self.safety_distance)
 
+    @property
+    def sensing_delay_steps(self) -> int:
+        """``sensing_delay`` expressed as a whole number of control periods."""
+
+        if self.sensing_delay < 0.0:
+            raise ValueError("sensing_delay must be non-negative")
+        if self.sensing_delay == 0.0:
+            return 0
+        ratio = self.sensing_delay / self.control_period
+        steps = round(ratio)
+        if steps < 1 or not math.isclose(ratio, steps, rel_tol=0.0, abs_tol=1e-9):
+            raise ValueError(
+                "sensing_delay must be an integer multiple of control_period "
+                f"(got sensing_delay={self.sensing_delay}, "
+                f"control_period={self.control_period})"
+            )
+        return steps
+
+    def build_actuator(self) -> Actuator:
+        """Ideal clip, optionally behind a lag and a pure delay.
+
+        Signal path: request -> delay -> lag -> saturation -> plant. Before
+        the first request arrives the plant sees the vehicle's cruise
+        command (full speed, straight), as it would already be underway.
+        """
+
+        limits = DubinsLimits(
+            min_speed=0.0,
+            max_speed=self.max_speed,
+            max_yaw_rate=self.max_yaw_rate,
+        )
+        cruise = DubinsCommand(speed=self.forward_speed, yaw_rate=0.0)
+        actuator: Actuator = IdealActuator(limits)
+        if self.actuator_time_constant > 0.0:
+            actuator = LagActuator(actuator, self.actuator_time_constant, cruise)
+        if self.actuation_delay > 0.0:
+            actuator = DelayedActuator(
+                actuator, self.actuation_delay, self.integration_step, cruise
+            )
+        return actuator
+
     def build_obstacles(self) -> tuple[Obstacle, ...]:
         return tuple(self.obstacles)
 
@@ -217,20 +277,22 @@ class ReactiveCircumnavScenario:
             return self.rho_0
         return check_turning_feasibility(self.rho_0, self.turning_radius)
 
-    def run(self) -> tuple[SimulationResult, ReactiveCircumnavController]:
+    def run(
+        self,
+    ) -> tuple[SimulationResult, ReactiveCircumnavController | DelayedController]:
         """Assemble and execute the scenario without global mutable state."""
 
         self.validate()
 
-        limits = DubinsLimits(
-            min_speed=0.0,
-            max_speed=self.max_speed,
-            max_yaw_rate=self.max_yaw_rate,
+        controller: ReactiveCircumnavController | DelayedController = (
+            self.build_controller()
         )
-        controller = self.build_controller()
+        delay_steps = self.sensing_delay_steps
+        if delay_steps > 0:
+            controller = DelayedController(controller, delay_steps)
         simulator = Simulator(
             model=DubinsModel(),
-            actuator=IdealActuator(limits),
+            actuator=self.build_actuator(),
             config=SimulationConfig(
                 duration=self.duration,
                 integration_step=self.integration_step,

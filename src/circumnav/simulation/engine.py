@@ -8,7 +8,7 @@ import math
 import numpy as np
 
 from circumnav.controllers.base import Controller
-from circumnav.models.actuator import IdealActuator
+from circumnav.models.actuator import Actuator
 from circumnav.models.dubins import DubinsCommand, DubinsModel, DubinsState
 from circumnav.simulation.result import SimulationResult
 
@@ -56,7 +56,7 @@ class Simulator:
     def __init__(
         self,
         model: DubinsModel,
-        actuator: IdealActuator,
+        actuator: Actuator,
         config: SimulationConfig,
     ) -> None:
         self.model = model
@@ -91,14 +91,13 @@ class Simulator:
 
         state = initial_state
         requested = DubinsCommand(0.0, 0.0)
-        actuator_output = self.actuator.apply(requested)
 
         for step in range(step_count + 1):
             current_time = float(time[step])
 
             if step % control_stride == 0 and step < step_count:
                 requested = controller.compute(current_time, state)
-                actuator_output = self.actuator.apply(requested)
+            actuator_output = self.actuator.apply(requested, integration_step)
 
             state_history[step] = state.as_array()
             requested_history[step] = requested.as_array()

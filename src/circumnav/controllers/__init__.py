@@ -1,6 +1,7 @@
 """Control laws for the simulator."""
 
 from circumnav.controllers.base import Controller
+from circumnav.controllers.delayed import DelayedController
 from circumnav.controllers.heading import HeadingController, HeadingControllerConfig
 from circumnav.controllers.open_loop import ConstantController
 from circumnav.controllers.reactive import (
@@ -14,6 +15,7 @@ __all__ = [
     "CircumnavMode",
     "ConstantController",
     "Controller",
+    "DelayedController",
     "HeadingController",
     "HeadingControllerConfig",
     "ReactiveCircumnavConfig",

@@ -1,6 +1,12 @@
 """Plant and actuator models."""
 
-from circumnav.models.actuator import ActuatorOutput, IdealActuator
+from circumnav.models.actuator import (
+    Actuator,
+    ActuatorOutput,
+    DelayedActuator,
+    IdealActuator,
+    LagActuator,
+)
 from circumnav.models.dubins import (
     DubinsCommand,
     DubinsLimits,
@@ -23,14 +29,17 @@ from circumnav.models.obstacles import (
 )
 
 __all__ = [
+    "Actuator",
     "ActuatorOutput",
     "CircleObstacle",
+    "DelayedActuator",
     "DubinsCommand",
     "DubinsLimits",
     "DubinsModel",
     "DubinsState",
     "EllipseObstacle",
     "IdealActuator",
+    "LagActuator",
     "Obstacle",
     "SegmentObstacle",
     "boundary_gap",

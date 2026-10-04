@@ -9,6 +9,16 @@ Reads `SimulationResult` and controller logs. **Never changes the dynamics.**
   of samples.
 - `heading_metrics(result, desired_heading)` for the heading scenario.
 
+- `fleet_separation_metrics(fleet)` (initial / minimum / final distance of the
+  closest pair) and `nearest_neighbour_distance(fleet)` `(robots, samples)`;
+  vehicles are points, `inf` for a single vehicle.
+
+## fleet_animation.py
+- `build_fleet_animation(fleet, controllers, obstacles, settings)` and
+  `save_fleet_figure(...)`: one map with a colour and triangle per vehicle,
+  `d_R(t)` of every vehicle, distance to the nearest neighbour. Reuses the private
+  helpers of `animation.py`. Save with `save_reactive_animation`.
+
 ## animation.py
 - `build_reactive_animation(result, controller, obstacles, settings) -> (fig, anim)`
   and `save_reactive_animation(fig, anim, path, fps)` (`.mp4` via ffmpeg, `.gif`

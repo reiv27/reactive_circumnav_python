@@ -56,3 +56,32 @@ class SimulationResult:
             saturated=self.saturated,
         )
 
+
+
+@dataclass(frozen=True)
+class FleetResult:
+    """Results of several vehicles simulated on one common time grid."""
+
+    results: tuple[SimulationResult, ...]
+
+    def __post_init__(self) -> None:
+        if not self.results:
+            raise ValueError("a fleet needs at least one result")
+        reference = self.results[0].time
+        for result in self.results[1:]:
+            if not np.array_equal(result.time, reference):
+                raise ValueError("all fleet results must share one time grid")
+
+    @property
+    def robot_count(self) -> int:
+        return len(self.results)
+
+    @property
+    def time(self) -> NDArray[np.float64]:
+        return self.results[0].time
+
+    @property
+    def positions(self) -> NDArray[np.float64]:
+        """Planar positions, shape ``(robot_count, samples, 2)``."""
+
+        return np.stack([result.state[:, :2] for result in self.results])

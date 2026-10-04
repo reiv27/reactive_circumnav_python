@@ -23,6 +23,7 @@ viz = [
 [project.scripts]
 circumnav-heading-demo = "circumnav.examples.heading_control:main"
 circumnav-reactive-demo = "circumnav.examples.reactive_circumnav:main"
+circumnav-fleet-demo = "circumnav.examples.fleet_circumnav:main"
 circumnav-delay-sweep = "circumnav.examples.delay_sweep:main"
 circumnav-delay-compare = "circumnav.examples.delay_compare:main"
 

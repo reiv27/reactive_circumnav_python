@@ -18,6 +18,15 @@ Human-facing docs: [README.md](README.md) (usage guide),
 `README_CONTROL_SIMULATOR.md` and `README_SENSOR_MODEL.md` are design notes that
 predate the implementation; the code is the source of truth.
 
+## Status of multi-vehicle work
+
+Branch `feature/fleet-ellipse`: several **independent** vehicles on one ellipse
+(`scenarios/fleet.py`), no interaction, no communication, **no delays**. If asked
+to extend it: vehicles as obstacles for each other and communication need a
+synchronous multi-vehicle loop (read all states at one instant, then run every
+controller) and a decision on `ḋ_R` for moving obstacles, which the frozen law
+does not handle; ask the user before changing the law.
+
 ## Hard rules
 
 1. **The control law is mathematically frozen.** `ReactiveCircumnavController`
@@ -122,7 +131,7 @@ src/circumnav/
   sensors/       base.py, circular.py                        -> sensors/AGENTS.md
   controllers/   reactive.py (the law), delayed.py, ...      -> controllers/AGENTS.md
   simulation/    engine.py, result.py                        -> simulation/AGENTS.md
-  scenarios/     reactive.py, heading.py                     -> scenarios/AGENTS.md
+  scenarios/     reactive.py, heading.py, fleet.py           -> scenarios/AGENTS.md
   analysis/      metrics.py, animation.py                    -> analysis/AGENTS.md
   examples/      CLIs: demos, delay_sweep, delay_compare     -> examples/AGENTS.md
 tests/                                                       -> tests/AGENTS.md

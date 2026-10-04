@@ -25,6 +25,18 @@ defaults outside the dataclass.
 ## heading.py
 `HeadingControlScenario`: proportional heading hold, the minimal loop check.
 
+## fleet.py
+- `equidistant_start_poses(obstacle, rho_0, count, phase)`: poses on the
+  equidistant curve, evenly spaced in arc length, heading along the
+  **counter-clockwise** tangent (the law keeps the obstacle on the left; clockwise
+  is not a stable circulation). Works on any obstacle with a closed equidistant.
+- `FleetScenario(base, robot_count, phase)`: `base` is a
+  `ReactiveCircumnavScenario` with **exactly one obstacle** and **all delays off**
+  (both enforced with `ValueError`). `run()` returns
+  `(FleetResult, tuple[controllers])`, running each vehicle through
+  `base.run()` from its own pose. Valid only because vehicles do not interact.
+- Do not add coupling by looping `base.run()`; it needs a synchronous loop.
+
 ## Adding a scenario
 Frozen dataclass, `run()` returns what its callers need, tests in
 `tests/test_scenarios.py`.

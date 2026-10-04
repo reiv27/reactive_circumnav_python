@@ -20,4 +20,8 @@
 - Controller diagnostics live in the controller's own log, not here (different
   rate, controller-specific content).
 
-Tests: `tests/test_simulation.py`.
+- `FleetResult(results)`: tuple of `SimulationResult` on one shared time grid
+  (validated); `robot_count`, `time`, `positions` of shape `(robots, samples, 2)`.
+  The engine itself is still single-vehicle.
+
+Tests: `tests/test_simulation.py`, `tests/test_fleet.py`.

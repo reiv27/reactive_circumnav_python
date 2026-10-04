@@ -19,11 +19,12 @@ Reference paper DOI: <https://doi.org/10.1016/j.robot.2024.104649>
 6. [The control law](#the-control-law)
 7. [Sensor model](#sensor-model)
 8. [Delays in the loop](#delays-in-the-loop)
-9. [Reading the results](#reading-the-results) — result, log, metrics
-10. [Animation](#animation)
-11. [Command-line tools](#command-line-tools)
-12. [Extending the stand](#extending-the-stand)
-13. [Tests, layout, troubleshooting](#running-the-tests)
+9. [Several vehicles](#several-vehicles)
+10. [Reading the results](#reading-the-results) — result, log, metrics
+11. [Animation](#animation)
+12. [Command-line tools](#command-line-tools)
+13. [Extending the stand](#extending-the-stand)
+14. [Tests, layout, troubleshooting](#running-the-tests)
 
 Related documents: [docs/delay_report.md](docs/delay_report.md) (how delays affect
 the relay's sliding mode, in Russian), [AGENTS.md](AGENTS.md) (map of the code for
@@ -367,6 +368,42 @@ circumnav-delay-compare --shape cluster --speed 2   # same scene under every cha
 
 ---
 
+## Several vehicles
+
+`FleetScenario` runs several identical vehicles around **one obstacle**, started at
+different points of the equidistant curve, evenly spaced in arc length and
+heading along the tangent (counter-clockwise: the law keeps the obstacle on the
+vehicle's left). The vehicles are independent — they do not see or avoid each
+other, and there is no communication — and delays are not supported yet.
+
+```python
+from dataclasses import replace
+from circumnav.examples.reactive_circumnav import build_obstacle
+from circumnav.scenarios.fleet import FleetScenario
+from circumnav.scenarios.reactive import ReactiveCircumnavScenario
+
+base = ReactiveCircumnavScenario(duration=60.0)
+base = replace(base, obstacles=build_obstacle("ellipse", base.rho_0, base.turning_radius))
+
+fleet, controllers = FleetScenario(base, robot_count=10, phase=0.0).run()
+fleet.results[3]            # a normal SimulationResult for vehicle 3
+controllers[3].log          # its controller log
+```
+
+`FleetResult` holds one `SimulationResult` per vehicle on a common time grid
+(`fleet.positions` has shape `(robots, samples, 2)`). Fleet metrics:
+`fleet_separation_metrics(fleet)` (initial, minimum and final distance between the
+closest pair; vehicles are points) and `nearest_neighbour_distance(fleet)`.
+
+```bash
+circumnav-fleet-demo --robots 10 --animate fleet.mp4 --figure fleet.png
+```
+
+Because the vehicles do not interact, running them one after another is exactly
+equivalent to running them together. Anything coupled (vehicles seen as obstacles,
+communication) needs a synchronous multi-vehicle loop that reads all states at one
+instant before any controller runs.
+
 ## Reading the results
 
 ### `SimulationResult`
@@ -515,6 +552,7 @@ implement yet.
 |---|---|
 | `circumnav-reactive-demo` | one run of the reactive law, prints a summary, optional `.npz` / animation |
 | `circumnav-heading-demo` | baseline heading-hold run |
+| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--figure`, `--animate` |
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 
@@ -573,7 +611,7 @@ does.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 ```
 
-86 tests, about half a minute. They cover the plant, obstacles, sensor, controller,
+104 tests, about 40 seconds. They cover the plant, obstacles, sensor, controller,
 loop, scenarios, actuators and delays.
 
 ## Layout
@@ -584,7 +622,7 @@ src/circumnav/
 ├── sensors/       measurement type, circular visibility sensor
 ├── controllers/   controller interface, heading controller, reactive law, delay wrapper
 ├── simulation/    sampled-data loop (zero-order hold) and result log
-├── scenarios/     reproducible experiment configurations
+├── scenarios/     reproducible experiment configurations (single vehicle, fleet)
 ├── analysis/      metrics and animation
 └── examples/      CLI entry points (demos, delay sweep, delay compare)
 tests/             pytest suite, one file per module

@@ -7,10 +7,11 @@ import math
 from typing import Sequence
 
 import numpy as np
+from numpy.typing import NDArray
 
 from circumnav.models.dubins import normalize_angle
 from circumnav.models.obstacles import Obstacle
-from circumnav.simulation.result import SimulationResult
+from circumnav.simulation.result import FleetResult, SimulationResult
 
 
 @dataclass(frozen=True)
@@ -92,4 +93,36 @@ def obstacle_clearance_metrics(
     return ObstacleClearanceMetrics(
         minimum_clearance=minimum_clearance,
         collided=minimum_clearance < collision_distance,
+    )
+
+
+@dataclass(frozen=True)
+class FleetSeparationMetrics:
+    """Distances between vehicles; vehicles are points with no physical size."""
+
+    initial_separation: float
+    minimum_separation: float
+    final_separation: float
+
+
+def nearest_neighbour_distance(fleet: FleetResult) -> NDArray[np.float64]:
+    """Distance from each vehicle to its nearest neighbour, ``(robots, samples)``."""
+
+    positions = fleet.positions
+    if fleet.robot_count < 2:
+        return np.full(positions.shape[:2], math.inf)
+    offsets = positions[:, None, :, :] - positions[None, :, :, :]
+    distances = np.linalg.norm(offsets, axis=-1)
+    distances[np.arange(fleet.robot_count), np.arange(fleet.robot_count)] = math.inf
+    return distances.min(axis=1)
+
+
+def fleet_separation_metrics(fleet: FleetResult) -> FleetSeparationMetrics:
+    """Closest pair at the start, over the whole run, and at the end."""
+
+    nearest = nearest_neighbour_distance(fleet).min(axis=0)
+    return FleetSeparationMetrics(
+        initial_separation=float(nearest[0]),
+        minimum_separation=float(nearest.min()),
+        final_separation=float(nearest[-1]),
     )

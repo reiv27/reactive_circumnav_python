@@ -1,7 +1,6 @@
 """Simulation engine and result containers."""
 
 from circumnav.simulation.engine import SimulationConfig, Simulator
-from circumnav.simulation.result import SimulationResult
+from circumnav.simulation.result import FleetResult, SimulationResult
 
-__all__ = ["SimulationConfig", "SimulationResult", "Simulator"]
-
+__all__ = ["FleetResult", "SimulationConfig", "SimulationResult", "Simulator"]

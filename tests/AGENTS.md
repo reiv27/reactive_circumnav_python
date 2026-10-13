@@ -12,6 +12,7 @@ Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no
 | `test_circular_sensor.py` | `P₁`/`P₂`, range, occlusion, exclusion |
 | `test_reactive_controller.py` | modes, switching, reset, log |
 | `test_delayed_controller.py` | state shift, `time` not delayed, forwarding, scenario wrapping |
+| `test_predictor_controller.py` | exact state reconstruction, scenario wrapping, equivalence to the sensing-delay-free baseline |
 | `test_simulation.py` | engine timing and results |
 | `test_scenarios.py` | scenario assembly and validation |
 

@@ -199,6 +199,7 @@ override with keyword arguments or `dataclasses.replace(scenario, field=value)`.
 | `sensing_delay` | `0.0` s | `τ_s`; multiple of `T` |
 | `actuation_delay` | `0.0` s | `τ_a (+ τ_c)`; multiple of `h` |
 | `actuator_time_constant` | `0.0` s | lag `τ` |
+| `sensing_compensation` | `False` | when `sensing_delay>0`, use `PredictorController` instead of `DelayedController` — see [Compensating sensing delay](#compensating-sensing-delay-predictorcontroller) |
 
 Derived properties: `turning_radius`, `rho_0`, `closing_speed_ratio`,
 `equidistant_curvature`, `sensing_delay_steps`. Methods: `validate()`,
@@ -365,6 +366,25 @@ circumnav-delay-compare --shape cluster --speed 2   # same scene under every cha
 
 (or `PYTHONPATH=src python3 -m circumnav.examples.delay_sweep ...`)
 
+### Compensating sensing delay: PredictorController
+
+`sensing_compensation=True` swaps `DelayedController` for `PredictorController`
+(`controllers/predictor.py`): instead of feeding the law a raw stale
+measurement, it reconstructs `x(t)` by forward-replaying the exact Dubins ZOH
+kinematics through the actual applied-command history (shadowing the real
+actuator chain when `actuation_delay`/`actuator_time_constant` are also
+non-zero). With a perfectly known model this reconstruction is exact to
+floating-point precision, so the law sees `x(t)` and behaves as though there
+were no sensing delay at all — mode switches included — which is exactly the
+mechanism that degrades into the limit cycle above. It does not (yet)
+compensate `τ_a`/lag on their own; see `controllers/AGENTS.md` and
+[docs/RL_plan.md](docs/RL_plan.md) for the planned next increments and why
+RL is a lower-priority alternative for this particular system.
+
+```bash
+circumnav-predictor-compare --shape cluster --delay 0.1   # baseline vs uncompensated vs predictor -> png
+```
+
 ---
 
 ## Reading the results
@@ -517,6 +537,7 @@ implement yet.
 | `circumnav-heading-demo` | baseline heading-hold run |
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
+| `circumnav-predictor-compare` | one scene: baseline vs sensing-delay-uncompensated vs `PredictorController` |
 
 `circumnav-reactive-demo` flags: `--obstacle {circle,ellipse,wall,cluster}`,
 `--duration`, `--sensor-range`, `--safety-distance` (`ρ₀`), `--forward-speed`,
@@ -533,6 +554,11 @@ second, `max|s|`, minimum clearance, collision flag) and writes
 channel), `--duration`, `--no-video`, `--fps`, `--speed`, `--zoom T0 T1`,
 `--workers`, `--output`. Writes `<shape>_<case>.mp4` for `baseline`, `sensing`,
 `actuation`, `lag`, plus `<shape>_compare.png` and `<shape>_compare_zoom.png`.
+
+`circumnav-predictor-compare` flags: `--shape`, `--delay` (`τ_s`, must be a
+multiple of `control_period`), `--duration`, `--workers`, `--output`. Prints
+`max|d_R|` (2nd half), minimum clearance, switch count and max position error
+versus baseline per case, and writes `<shape>_predictor_compare.png`.
 
 Outputs default to `simulation_output/` (git-ignored).
 

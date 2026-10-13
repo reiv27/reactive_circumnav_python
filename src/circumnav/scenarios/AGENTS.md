@@ -12,7 +12,11 @@ defaults outside the dataclass.
 - `build_controller()` returns the bare controller; `build_actuator()` returns
   `Ideal`, optionally wrapped in `LagActuator` then `DelayedActuator` (initial
   command `(v, 0)`); `run()` wraps the controller in `DelayedController` when
-  `sensing_delay > 0` and returns `(result, controller)` — the wrapper in that case.
+  `sensing_delay > 0` (or `PredictorController` instead, when
+  `sensing_compensation=True` — exact state reconstruction via forward replay;
+  see `controllers/predictor.py`, only exact while `actuation_delay` and
+  `actuator_time_constant` are both zero) and returns `(result, controller)` —
+  the wrapper in that case.
 - `sensing_delay_steps` raises unless `sensing_delay` is a multiple of
   `control_period`.
 - `gap_cluster(rho_0, turning_radius, scale)`: 4 circles + 3 ellipses; one channel

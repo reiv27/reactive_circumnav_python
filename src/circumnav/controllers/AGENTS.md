@@ -28,8 +28,36 @@
 - `__getattr__` forwards everything else to `inner`, so animation and metrics work
   on the wrapper unchanged. Keep it that way; do not copy the log.
 
+## predictor.py — `PredictorController(inner, delay_steps, control_period, model=None, integration_step=None, actuator_factory=None)`
+- Compensates `tau_s` by reconstructing `x(t)` instead of feeding `inner` the
+  raw stale state: replays `DubinsModel.propagate` through a stream of
+  *applied* commands, starting from the same stale anchor measurement
+  `DelayedController` would use.
+- No `actuator_factory` (stage 1a): replays its own issued-command history
+  directly, one `control_period`-sized step each. Exact while
+  `actuation_delay == 0` and `actuator_time_constant == 0`.
+- With `actuator_factory` (stage 1b, what `ReactiveCircumnavScenario.run()`
+  always passes — `self.build_actuator`): keeps a persistent **shadow**
+  actuator, stepped on the `integration_step` grid every call, fed this
+  controller's own commands. Since the real actuator chain is a pure,
+  deterministic function of its command stream (never reads plant state),
+  the shadow stays in lockstep with the real one by construction, so
+  replaying the shadow-applied stream reconstructs `x(t)` exactly even when
+  `actuation_delay`/`actuator_time_constant` are non-zero.
+- **Scope boundary, both cases**: this only undoes the *sensing* delay's
+  effect on the switching decision (mode `C`/`G` included). It does **not**
+  compensate `tau_a`/lag themselves — that needs a forward, queued-command
+  prediction (a different, harder mechanism: what's already committed but
+  not yet applied), not implemented. With `delay_steps == 0` this is
+  correctly a no-op regardless of `actuator_factory` — there is nothing to
+  reconstruct when sensing is already current, and it must not pretend to
+  fix `tau_a`/lag on their own.
+- Same wrapper contract as `DelayedController`: `time` is never delayed,
+  `__getattr__` forwards everything else to `inner`.
+
 ## Other
 - `heading.py` — proportional heading hold (baseline experiment).
 - `open_loop.py` — `ConstantController` for plant verification.
 
-Tests: `tests/test_reactive_controller.py`, `tests/test_delayed_controller.py`.
+Tests: `tests/test_reactive_controller.py`, `tests/test_delayed_controller.py`,
+`tests/test_predictor_controller.py`.

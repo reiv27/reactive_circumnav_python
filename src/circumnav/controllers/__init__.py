@@ -4,6 +4,7 @@ from circumnav.controllers.base import Controller
 from circumnav.controllers.delayed import DelayedController
 from circumnav.controllers.heading import HeadingController, HeadingControllerConfig
 from circumnav.controllers.open_loop import ConstantController
+from circumnav.controllers.predictor import PredictorController
 from circumnav.controllers.reactive import (
     CircumnavMode,
     ReactiveCircumnavConfig,
@@ -18,6 +19,7 @@ __all__ = [
     "DelayedController",
     "HeadingController",
     "HeadingControllerConfig",
+    "PredictorController",
     "ReactiveCircumnavConfig",
     "ReactiveCircumnavController",
     "ReactiveLogEntry",

@@ -9,6 +9,7 @@ runnable as `PYTHONPATH=src python3 -m circumnav.examples.<module>`.
 | `heading_control.py` | `circumnav-heading-demo` | baseline heading hold |
 | `delay_sweep.py` | `circumnav-delay-sweep` | one channel (`sensing`, `actuation`, `lag`) at a time, others zero; per point: settled `max|d_R|`, bias, RMS, relay flips per second, `max|s|`, lost fraction, G fraction, clearance, collision |
 | `delay_compare.py` | `circumnav-delay-compare` | one scene under baseline + each channel at the same value; mp4 per case, overlay and zoom figures |
+| `predictor_compare.py` | `circumnav-predictor-compare` | one scene under baseline / sensing-delay-uncompensated / sensing-delay+`PredictorController`; mp4 per case (default on, `--no-video` to skip), overlay figure, prints max position error vs baseline per case (stage 1a/1b acceptance check) |
 
 ## Conventions
 - Metrics use the second half of the run (`SETTLED_FRACTION = 0.5`) to drop the

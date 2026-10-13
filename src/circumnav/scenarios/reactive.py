@@ -8,6 +8,7 @@ import math
 import numpy as np
 
 from circumnav.controllers.delayed import DelayedController
+from circumnav.controllers.predictor import PredictorController
 from circumnav.controllers.reactive import (
     ReactiveCircumnavConfig,
     ReactiveCircumnavController,
@@ -169,6 +170,11 @@ class ReactiveCircumnavScenario:
     actuation_delay: float = 0.0
     #: tau: time constant of a first-order lag on the applied command.
     actuator_time_constant: float = 0.0
+    #: When sensing_delay > 0, use PredictorController (exact forward-replay
+    #: state reconstruction) instead of DelayedController (raw stale state).
+    #: See controllers/predictor.py; exact only while actuation_delay and
+    #: actuator_time_constant are both zero.
+    sensing_compensation: bool = False
 
     @property
     def turning_radius(self) -> float:
@@ -279,17 +285,34 @@ class ReactiveCircumnavScenario:
 
     def run(
         self,
-    ) -> tuple[SimulationResult, ReactiveCircumnavController | DelayedController]:
+    ) -> tuple[
+        SimulationResult,
+        ReactiveCircumnavController | DelayedController | PredictorController,
+    ]:
         """Assemble and execute the scenario without global mutable state."""
 
         self.validate()
 
-        controller: ReactiveCircumnavController | DelayedController = (
-            self.build_controller()
-        )
+        controller: (
+            ReactiveCircumnavController | DelayedController | PredictorController
+        ) = self.build_controller()
         delay_steps = self.sensing_delay_steps
         if delay_steps > 0:
-            controller = DelayedController(controller, delay_steps)
+            if self.sensing_compensation:
+                # actuator_factory lets the predictor shadow-replicate
+                # whatever actuator chain this scenario actually builds
+                # (delay and/or lag), so the reconstruction of x(t) stays
+                # exact even under joint sensing + actuation delays -- see
+                # controllers/predictor.py.
+                controller = PredictorController(
+                    controller,
+                    delay_steps,
+                    self.control_period,
+                    integration_step=self.integration_step,
+                    actuator_factory=self.build_actuator,
+                )
+            else:
+                controller = DelayedController(controller, delay_steps)
         simulator = Simulator(
             model=DubinsModel(),
             actuator=self.build_actuator(),

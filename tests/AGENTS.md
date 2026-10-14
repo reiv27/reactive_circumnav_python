@@ -1,7 +1,7 @@
 # tests/
 
 Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider`
-(86 tests, ~35 s). One file per module:
+(109 tests, ~25 s). One file per module:
 
 | file | covers |
 |---|---|
@@ -15,6 +15,7 @@ Run: `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no
 | `test_predictor_controller.py` | exact state reconstruction, scenario wrapping, equivalence to the sensing-delay-free baseline |
 | `test_simulation.py` | engine timing and results |
 | `test_scenarios.py` | scenario assembly and validation |
+| `test_rl_env.py` | `CircumnavEnv` contract: observation/action spaces, truncation, collision termination, action history, seeding (skipped if `gymnasium` is not installed) |
 
 ## Writing tests
 - Use concrete coordinates and check geometry by hand; derive expected numbers

@@ -19,15 +19,17 @@ Reference paper DOI: <https://doi.org/10.1016/j.robot.2024.104649>
 6. [The control law](#the-control-law)
 7. [Sensor model](#sensor-model)
 8. [Delays in the loop](#delays-in-the-loop)
-9. [Reading the results](#reading-the-results) — result, log, metrics
-10. [Animation](#animation)
-11. [Command-line tools](#command-line-tools)
-12. [Extending the stand](#extending-the-stand)
-13. [Tests, layout, troubleshooting](#running-the-tests)
+9. [Reinforcement learning (experimental)](#reinforcement-learning-experimental)
+10. [Reading the results](#reading-the-results) — result, log, metrics
+11. [Animation](#animation)
+12. [Command-line tools](#command-line-tools)
+13. [Extending the stand](#extending-the-stand)
+14. [Tests, layout, troubleshooting](#running-the-tests)
 
 Related documents: [docs/delay_report.md](docs/delay_report.md) (how delays affect
-the relay's sliding mode, in Russian), [AGENTS.md](AGENTS.md) (map of the code for
-coding agents).
+the relay's sliding mode, in Russian), [docs/RL_plan.md](docs/RL_plan.md) (RL as a
+lower-priority alternative, and a first learning-exercise sketch, in Russian),
+[AGENTS.md](AGENTS.md) (map of the code for coding agents).
 
 ---
 
@@ -81,8 +83,11 @@ pip install -e ".[dev,viz]"
 ```
 
 `numpy` is the only runtime dependency; `viz` adds `matplotlib` for plots and
-animation (`.mp4` additionally needs `ffmpeg` on the `PATH`). Without
-installing, prefix commands with `PYTHONPATH=src` and use `python3 -m ...`.
+animation (`.mp4` additionally needs `ffmpeg` on the `PATH`); `rl` adds
+`gymnasium` + `stable-baselines3` + `torch` for the RL experiment (see
+[Reinforcement learning (experimental)](#reinforcement-learning-experimental)) —
+managed with `uv` (`uv sync --extra rl`), everything else works without it.
+Without installing, prefix commands with `PYTHONPATH=src` and use `python3 -m ...`.
 
 ```bash
 circumnav-reactive-demo --obstacle cluster --animate run.mp4
@@ -387,6 +392,30 @@ circumnav-predictor-compare --shape cluster --delay 0.1   # baseline vs uncompen
 
 ---
 
+<a id="reinforcement-learning-experimental"></a>
+## Reinforcement learning (experimental)
+
+[docs/RL_plan.md](docs/RL_plan.md) rates RL a low-priority alternative here — the
+Dubins model is exact and well known, so `PredictorController` cannot structurally
+be beaten by RL in the nominal, delay-free case. `src/circumnav/rl/` is a learning
+exercise anyway: a step-able `gymnasium.Env` (`CircumnavEnv`) that replaces the relay
+entirely (continuous `ω`, PPO via `stable-baselines3`), evaluated against the frozen
+relay on the same scene. See `rl/AGENTS.md` for the observation/action/reward layout.
+
+Requires the `rl` extra, installed with `uv`:
+
+```bash
+uv sync --extra rl
+uv run circumnav-rl-train --shape ellipse --timesteps 400000
+```
+
+Trains PPO, saves `simulation_output/ppo_<shape>.zip`, prints `max|d_R|` / minimum
+clearance / collision for PPO vs the relay baseline, and saves
+`simulation_output/<shape>_rl_compare.png`. `--load path/to/model.zip` re-evaluates a
+saved model without retraining.
+
+---
+
 ## Reading the results
 
 ### `SimulationResult`
@@ -538,6 +567,7 @@ implement yet.
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 | `circumnav-predictor-compare` | one scene: baseline vs sensing-delay-uncompensated vs `PredictorController` |
+| `circumnav-rl-train` | train PPO on `CircumnavEnv` and compare it to the relay baseline (requires the `rl` extra) |
 
 `circumnav-reactive-demo` flags: `--obstacle {circle,ellipse,wall,cluster}`,
 `--duration`, `--sensor-range`, `--safety-distance` (`ρ₀`), `--forward-speed`,
@@ -559,6 +589,10 @@ channel), `--duration`, `--no-video`, `--fps`, `--speed`, `--zoom T0 T1`,
 multiple of `control_period`), `--duration`, `--workers`, `--output`. Prints
 `max|d_R|` (2nd half), minimum clearance, switch count and max position error
 versus baseline per case, and writes `<shape>_predictor_compare.png`.
+
+`circumnav-rl-train` flags: `--shape`, `--duration`, `--timesteps`, `--n-envs`,
+`--seed`, `--no-jitter` (fixed start pose instead of a jittered one), `--load`
+(evaluate a saved model instead of training), `--output`. Requires the `rl` extra.
 
 Outputs default to `simulation_output/` (git-ignored).
 
@@ -599,8 +633,8 @@ does.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 ```
 
-86 tests, about half a minute. They cover the plant, obstacles, sensor, controller,
-loop, scenarios, actuators and delays.
+109 tests, about 25 seconds. They cover the plant, obstacles, sensor, controller,
+loop, scenarios, actuators, delays and (if `gymnasium` is installed) the RL env.
 
 ## Layout
 
@@ -612,9 +646,10 @@ src/circumnav/
 ├── simulation/    sampled-data loop (zero-order hold) and result log
 ├── scenarios/     reproducible experiment configurations
 ├── analysis/      metrics and animation
-└── examples/      CLI entry points (demos, delay sweep, delay compare)
+├── examples/      CLI entry points (demos, delay sweep, delay compare, RL training)
+└── rl/            gymnasium env + PPO sketch for the RL experiment (optional `rl` extra)
 tests/             pytest suite, one file per module
-docs/              reports (delay_report.md) and figures
+docs/              reports (delay_report.md, RL_plan.md) and figures
 ```
 
 Each package has an `AGENTS.md` describing its contracts and invariants.

@@ -10,6 +10,7 @@ runnable as `PYTHONPATH=src python3 -m circumnav.examples.<module>`.
 | `delay_sweep.py` | `circumnav-delay-sweep` | one channel (`sensing`, `actuation`, `lag`) at a time, others zero; per point: settled `max|d_R|`, bias, RMS, relay flips per second, `max|s|`, lost fraction, G fraction, clearance, collision |
 | `delay_compare.py` | `circumnav-delay-compare` | one scene under baseline + each channel at the same value; mp4 per case, overlay and zoom figures |
 | `predictor_compare.py` | `circumnav-predictor-compare` | one scene under baseline / sensing-delay-uncompensated / sensing-delay+`PredictorController`; mp4 per case (default on, `--no-video` to skip), overlay figure, prints max position error vs baseline per case (stage 1a/1b acceptance check) |
+| `rl_train.py` | `circumnav-rl-train` | trains PPO (`stable-baselines3`) on `circumnav.rl.env.CircumnavEnv` (postановка (a), no delay), evaluates a deterministic rollout against the frozen relay on the same scene, prints `max|d_R|`/clearance/collision for both, saves the model and a comparison figure. Requires the `rl` extra. `--load` skips training and evaluates a saved model instead |
 
 ## Conventions
 - Metrics use the second half of the run (`SETTLED_FRACTION = 0.5`) to drop the

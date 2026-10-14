@@ -61,7 +61,7 @@ Plot labels use LaTeX mathtext (`$d_R(t)$`), never plain `d_R`.
 installed by default, so set `PYTHONPATH=src`.
 
 ```bash
-# full suite, ~35 s
+# full suite, ~25 s
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 
 # one file
@@ -73,6 +73,9 @@ PYTHONPATH=src python3 -m circumnav.examples.reactive_circumnav --obstacle clust
 # delay experiments
 PYTHONPATH=src python3 -m circumnav.examples.delay_sweep --shape ellipse
 PYTHONPATH=src python3 -m circumnav.examples.delay_compare --shape cluster --speed 2
+
+# RL experiment (requires the 'rl' extra; this repo uses uv for it)
+uv run circumnav-rl-train --shape ellipse --timesteps 400000
 ```
 
 Runs of 60 s take seconds each; sweeps use a process pool (`--workers`). Anything
@@ -125,8 +128,9 @@ src/circumnav/
   scenarios/     reactive.py, heading.py                     -> scenarios/AGENTS.md
   analysis/      metrics.py, animation.py                    -> analysis/AGENTS.md
   examples/      CLIs: demos, delay_sweep, delay_compare     -> examples/AGENTS.md
+  rl/            CircumnavEnv (gymnasium), PPO sketch        -> rl/AGENTS.md
 tests/                                                       -> tests/AGENTS.md
-docs/            delay_report.md, figures/
+docs/            delay_report.md, RL_plan.md, figures/
 ```
 
 ## Git history facts

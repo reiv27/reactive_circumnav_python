@@ -26,6 +26,7 @@ circumnav-reactive-demo = "circumnav.examples.reactive_circumnav:main"
 circumnav-delay-sweep = "circumnav.examples.delay_sweep:main"
 circumnav-delay-compare = "circumnav.examples.delay_compare:main"
 circumnav-predictor-compare = "circumnav.examples.predictor_compare:main"
+circumnav-predictor-report = "circumnav.examples.predictor_report:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

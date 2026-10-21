@@ -21,16 +21,36 @@ from circumnav.models.obstacles import (
 from circumnav.scenarios.reactive import ReactiveCircumnavScenario, gap_cluster
 from circumnav.simulation.result import SimulationResult
 
-OBSTACLE_SHAPES = ("circle", "ellipse", "wall", "cluster")
+OBSTACLE_SHAPES = ("circle", "ellipse", "wall", "cluster", "two_ellipses")
 
 
 def build_obstacle(
     shape: str, rho_0: float = 2.0, turning_radius: float = 1.0
 ) -> tuple[Obstacle, ...]:
-    """Build a demo obstacle of the requested shape, centered on the origin."""
+    """Build a demo obstacle of the requested shape, near the origin."""
 
     if shape == "cluster":
         return gap_cluster(rho_0=rho_0, turning_radius=turning_radius)
+    if shape == "two_ellipses":
+        # Boundary gap 7 m: the equidistant curves do not touch (2*rho_0 = 6 m
+        # at the default standoff) but the channel is narrower than
+        # 1.5*R_min, so the vehicle bridges each waist in mode G.
+        return (
+            EllipseObstacle(
+                center=np.array([0.0, 0.0]),
+                semi_axis_x=6.0,
+                semi_axis_y=3.0,
+                obstacle_id=0,
+                angle=0.0,
+            ),
+            EllipseObstacle(
+                center=np.array([16.0, 0.0]),
+                semi_axis_x=6.0,
+                semi_axis_y=3.0,
+                obstacle_id=1,
+                angle=np.pi / 2.0,
+            ),
+        )
     if shape == "circle":
         return (CircleObstacle(center=np.array([0.0, 0.0]), radius=4.0, obstacle_id=0),)
     if shape == "ellipse":

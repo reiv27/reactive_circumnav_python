@@ -89,7 +89,7 @@ circumnav-reactive-demo --obstacle cluster --animate run.mp4
 ```
 
 Prints the run summary and writes an animated playback. Other shapes:
-`--obstacle circle | ellipse | wall | cluster`.
+`--obstacle circle | ellipse | wall | cluster | two_ellipses`.
 
 ```
 rho_0 / R_min:        3.000 / 2.000 m  (ok)
@@ -538,8 +538,9 @@ implement yet.
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 | `circumnav-predictor-compare` | one scene: baseline vs sensing-delay-uncompensated vs `PredictorController` |
+| `circumnav-predictor-report` | `τ_s` sweep, joint delays and a mode-G zoom: uncompensated vs predictor on one scene |
 
-`circumnav-reactive-demo` flags: `--obstacle {circle,ellipse,wall,cluster}`,
+`circumnav-reactive-demo` flags: `--obstacle {circle,ellipse,wall,cluster,two_ellipses}`,
 `--duration`, `--sensor-range`, `--safety-distance` (`ρ₀`), `--forward-speed`,
 `--yaw-rate-magnitude`, `--allow-infeasible-turning`, `--output run.npz`,
 `--animate out.mp4|gif`, `--animation-fps`, `--animation-speed`.
@@ -559,6 +560,13 @@ channel), `--duration`, `--no-video`, `--fps`, `--speed`, `--zoom T0 T1`,
 multiple of `control_period`), `--duration`, `--workers`, `--output`. Prints
 `max|d_R|` (2nd half), minimum clearance, switch count and max position error
 versus baseline per case, and writes `<shape>_predictor_compare.png`.
+
+`circumnav-predictor-report` flags: `--shape` (default `two_ellipses`), `--delay`
+(`τ_s` for the zoom figure and the mode-G episode times), `--joint-delay` (value of
+`τ_s`, `τ_a` and the lag in the joint experiment), `--duration`, `--workers`,
+`--output`. Prints the `τ_s` sweep, the joint-delay table and the mode-G episode
+times; writes `<shape>_predictor_sweep.{npz,png}` and `<shape>_predictor_zoom.png`.
+Results: [docs/predictor_report.md](docs/predictor_report.md).
 
 Outputs default to `simulation_output/` (git-ignored).
 
@@ -599,7 +607,7 @@ does.
 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider
 ```
 
-86 tests, about half a minute. They cover the plant, obstacles, sensor, controller,
+104 tests, about half a minute. They cover the plant, obstacles, sensor, controller,
 loop, scenarios, actuators and delays.
 
 ## Layout

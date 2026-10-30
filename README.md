@@ -393,11 +393,23 @@ controllers[3].log          # its controller log
 `FleetResult` holds one `SimulationResult` per vehicle on a common time grid
 (`fleet.positions` has shape `(robots, samples, 2)`). Fleet metrics:
 `fleet_separation_metrics(fleet)` (initial, minimum and final distance between the
-closest pair; vehicles are points) and `nearest_neighbour_distance(fleet)`.
+closest pair; vehicles are points), `nearest_neighbour_distance(fleet)`,
+`pairwise_distance(fleet)` and, per vehicle, `obstacle_distance(result, obstacles)`.
 
 ```bash
-circumnav-fleet-demo --robots 10 --animate fleet.mp4 --figure fleet.png
+circumnav-fleet-demo --robots 10 --animate fleet.mp4 --figure fleet.png \
+    --distance-figure fleet_distances.png
 ```
+
+`--distance-figure` plots, over time, the distance from the focus vehicle to each
+neighbour, the nearest neighbour it actually *sees* against the true nearest one,
+the nearest-neighbour distance of every vehicle with the closest pair, and each
+vehicle's true distance to the obstacle against `ρ₀`. The true nearest distance is
+continuous (it moves at most `2v·h` per step); the nearest *visible* one
+(`nearest_visible_neighbour_distance`, `NaN` when nobody is seen) jumps when the
+nearest neighbour hides behind the body and drops out when nobody is in sight. On
+the demo with `R_s = 12 m` vehicle #0 sees nobody 64 % of the run; with
+`--neighbour-range 100` it always sees someone but the distance jumps by ≈ 1.5 m.
 
 **Neighbours dropping out of sight.** A `NeighbourSensor` (`sensors/neighbours.py`)
 decides whether one vehicle sees another: within `max_range` (by default the
@@ -570,7 +582,7 @@ implement yet.
 |---|---|
 | `circumnav-reactive-demo` | one run of the reactive law, prints a summary, optional `.npz` / animation |
 | `circumnav-heading-demo` | baseline heading-hold run |
-| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--semi-axes`, `--focus`, `--neighbour-range`, `--figure`, `--animate` |
+| `circumnav-fleet-demo` | several independent vehicles on one ellipse: `--robots`, `--duration`, `--phase`, `--semi-axes`, `--focus`, `--neighbour-range`, `--figure`, `--distance-figure`, `--animate` |
 | `circumnav-delay-sweep` | metrics versus one delay channel, others zero |
 | `circumnav-delay-compare` | one scene under each channel: videos and overlay plots |
 

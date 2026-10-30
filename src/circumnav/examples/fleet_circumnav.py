@@ -15,6 +15,8 @@ import numpy as np
 from circumnav.analysis.metrics import (
     fleet_separation_metrics,
     hidden_episode_durations,
+    nearest_neighbour_distance,
+    nearest_visible_neighbour_distance,
     neighbour_visibility,
     neighbour_visibility_metrics,
     obstacle_clearance_metrics,
@@ -61,6 +63,8 @@ def main() -> None:
                         help="line-of-sight range between vehicles "
                         "(default: the obstacle sensor range)")
     parser.add_argument("--figure", type=Path, help="static summary figure (.png)")
+    parser.add_argument("--distance-figure", type=Path,
+                        help="pairwise, nearest-neighbour and obstacle distances (.png)")
     parser.add_argument("--animate", type=Path, help="playback (.mp4 or .gif)")
     parser.add_argument("--animation-fps", type=int, default=30)
     parser.add_argument("--animation-speed", type=float, default=1.0)
@@ -118,10 +122,27 @@ def main() -> None:
             f" {episodes.size} episodes, mean {mean:.1f} s, longest {longest:.1f} s"
         )
 
-    if arguments.figure is not None or arguments.animate is not None:
+    true_nearest = nearest_neighbour_distance(fleet)[arguments.focus]
+    seen_nearest = nearest_visible_neighbour_distance(fleet, visibility)[arguments.focus]
+    blind = np.isnan(seen_nearest)
+    both = ~blind[:-1] & ~blind[1:]
+    jumps = np.abs(np.diff(seen_nearest))[both]
+    print(f"vehicle #{arguments.focus} nearest visible neighbour:")
+    print(f"  sees nobody:        {100.0 * blind.mean():.0f} % of the run, "
+          f"{int((~blind[:-1] & blind[1:]).sum())} times lost everyone")
+    print(f"  largest jump:       {jumps.max() if jumps.size else 0.0:.2f} m "
+          f"(true nearest moves at most {np.abs(np.diff(true_nearest)).max():.3f} m"
+          " per step)")
+
+    if (
+        arguments.figure is not None
+        or arguments.distance_figure is not None
+        or arguments.animate is not None
+    ):
         from circumnav.analysis.animation import AnimationSettings, save_reactive_animation
         from circumnav.analysis.fleet_animation import (
             build_fleet_animation,
+            save_fleet_distance_figure,
             save_fleet_figure,
         )
 
@@ -131,6 +152,12 @@ def main() -> None:
                 visibility=visibility, focus=arguments.focus,
             )
             print(f"figure saved to:      {arguments.figure}")
+        if arguments.distance_figure is not None:
+            save_fleet_distance_figure(
+                fleet, obstacles, arguments.distance_figure,
+                scenario.base.safety_distance, visibility, focus=arguments.focus,
+            )
+            print(f"distances saved to:   {arguments.distance_figure}")
         if arguments.animate is not None:
             fig, anim = build_fleet_animation(
                 fleet, controllers, obstacles,
@@ -138,7 +165,8 @@ def main() -> None:
                     fps=arguments.animation_fps,
                     real_time_factor=arguments.animation_speed,
                 ),
-                visibility=visibility, focus=arguments.focus,
+                neighbour_sensor=neighbour_sensor, visibility=visibility,
+                focus=arguments.focus,
             )
             save_reactive_animation(
                 fig, anim, arguments.animate, fps=arguments.animation_fps

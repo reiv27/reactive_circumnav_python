@@ -18,14 +18,33 @@ Human-facing docs: [README.md](README.md) (usage guide),
 `README_CONTROL_SIMULATOR.md` and `README_SENSOR_MODEL.md` are design notes that
 predate the implementation; the code is the source of truth.
 
-## Status of multi-vehicle work
+## Tracks — three separate lines of work, never mix them
 
-Branch `feature/fleet-ellipse`: several **independent** vehicles on one ellipse
-(`scenarios/fleet.py`), no interaction, no communication, **no delays**. If asked
-to extend it: vehicles as obstacles for each other and communication need a
-synchronous multi-vehicle loop (read all states at one instant, then run every
-controller) and a decision on `ḋ_R` for moving obstacles, which the frozen law
-does not handle; ask the user before changing the law.
+| track | branch | lives in | state |
+|---|---|---|---|
+| **delays** | `main` | `controllers/delayed.py`, `controllers/predictor.py`, `models/actuator.py`, `examples/delay_*.py`, `examples/predictor_compare.py`, `docs/delay_report.md` | delay channels and experiments; predictor stage 1 merged (PR #1) |
+| **multi-vehicle** | `feature/fleet-ellipse` (from `a4ac55f`, before the predictor) | `scenarios/fleet.py`, `sensors/neighbours.py`, `analysis/fleet_animation.py`, `examples/fleet_circumnav.py` | independent vehicles; neighbour line-of-sight visibility, analysis only |
+| **RL** | `rl/ppo-ellipse-sketch` | `rl/`, `examples/rl_train.py`, `docs/RL_plan.md`; `uv` + `rl` extra | learning sketch: `CircumnavEnv` + PPO |
+
+- Before any change, name the track and check you are on its branch. If a request
+  is ambiguous or touches two tracks, ask; do not guess.
+- One branch, commit, module, experiment and doc section serves one track. No
+  imports across tracks (the fleet does not use delays or the predictor, RL does
+  not use the fleet). Combining tracks (fleet with delays, RL on the fleet) is a
+  new decision for the user, not an extension.
+- A change to the shared core (`models/`, `sensors/base.py`/`circular.py`,
+  `controllers/reactive.py`, `simulation/`) affects all three: ask where it goes
+  before making it.
+- `uv.lock` belongs to the RL branch; do not commit it on the other tracks.
+
+**Multi-vehicle state.** Several **independent** vehicles on one ellipse: no
+interaction, no communication, **no delays** (`FleetScenario` rejects them).
+`NeighbourSensor` measures range plus occlusion by obstacle bodies; its output
+feeds metrics and plots only, never a controller. If asked to extend it: vehicles
+as obstacles for each other and communication need a synchronous multi-vehicle
+loop (read all states at one instant, then run every controller) and a decision on
+`ḋ_R` for moving obstacles, which the frozen law does not handle; ask the user
+before changing the law.
 
 ## Hard rules
 
@@ -82,10 +101,52 @@ PYTHONPATH=src python3 -m circumnav.examples.reactive_circumnav --obstacle clust
 # delay experiments
 PYTHONPATH=src python3 -m circumnav.examples.delay_sweep --shape ellipse
 PYTHONPATH=src python3 -m circumnav.examples.delay_compare --shape cluster --speed 2
+
+# fleet demo (feature/fleet-ellipse)
+PYTHONPATH=src python3 -m circumnav.examples.fleet_circumnav --robots 10 --figure fleet.png
 ```
 
 Runs of 60 s take seconds each; sweeps use a process pool (`--workers`). Anything
 longer than the 2-minute tool timeout (video rendering) must run in the background.
+
+## Code style: ROS 2 / robotics
+
+Write code as it would pass review in a ROS 2 Python package:
+
+- [ROS 2 code style](https://docs.ros.org/en/rolling/The-ROS2-Project/Contributing/Code-Style-Language-Versions.html)
+  for Python: PEP 8 and PEP 257 as checked by `ament_flake8` / `ament_pep257`,
+  lines ≤ 99 characters, imports grouped stdlib / third-party / local.
+- Quote style: match the file. Existing code uses double quotes; switching the
+  repo to `ament_flake8` single quotes is a separate commit, only on request. Do
+  not reformat untouched code inside a feature commit.
+- [REP 103](https://www.ros.org/reps/rep-0103.html): SI units only (m, s, rad,
+  m/s, rad/s), right-handed frames, `x` forward, yaw positive counter-clockwise,
+  angles wrapped to `(−π, π]`. State the unit in the docstring of every physical
+  parameter; never degrees inside the model.
+- [REP 105](https://www.ros.org/reps/rep-0105.html) frame names (`map`, `odom`,
+  `base_link`) when a frame needs a name; say which frame a pose or point is in.
+- Keep blocks shaped like ROS 2 nodes: sensor, controller and actuator talk through
+  typed messages (frozen dataclasses), have explicit rates (`T`, `h`) and
+  parameters, and hold no hidden global state, so a block can later be wrapped in
+  an `rclpy` node without rewriting it.
+
+## Control engineering: always metrics and figures
+
+Any change or experiment that touches control behaviour (law, delays, actuator,
+sensor, scenario, RL policy) is reported with **numbers and plots**, never with
+"it works":
+
+- Metrics on the settled part of the run (`SETTLED_FRACTION = 0.5`) plus the
+  transient: peak and RMS `|d_R|`, bias, settling time, minimum clearance
+  `min(ρ) − ρ₀` and collision flag, relay flips per second (chattering), share of
+  mode `G` and of "nothing visible". Track-specific ones on top (fleet: separation,
+  neighbour visibility; RL: return, success rate).
+- Figures: trajectory with obstacles (`x`–`y`, equal axes), `d_R(t)`, `ρ(t)`
+  against `ρ₀`, `u(t)` and mode, with axis labels in units and mathtext symbols.
+- Always against a baseline (zero delay, the reference controller, previous
+  version) on the same scene and seed.
+- Data and figures go to `simulation_output/`; those worth keeping go to
+  `docs/figures/` and are cited in the report or README.
 
 ## Conventions
 
@@ -128,12 +189,12 @@ longer than the 2-minute tool timeout (video rendering) must run in the backgrou
 ```
 src/circumnav/
   models/        dubins.py, actuator.py, obstacles.py        -> models/AGENTS.md
-  sensors/       base.py, circular.py                        -> sensors/AGENTS.md
+  sensors/       base.py, circular.py, neighbours.py         -> sensors/AGENTS.md
   controllers/   reactive.py (the law), delayed.py, ...      -> controllers/AGENTS.md
   simulation/    engine.py, result.py                        -> simulation/AGENTS.md
   scenarios/     reactive.py, heading.py, fleet.py           -> scenarios/AGENTS.md
-  analysis/      metrics.py, animation.py                    -> analysis/AGENTS.md
-  examples/      CLIs: demos, delay_sweep, delay_compare     -> examples/AGENTS.md
+  analysis/      metrics.py, animation.py, fleet_animation.py -> analysis/AGENTS.md
+  examples/      CLIs: demos, delay_*, fleet_circumnav       -> examples/AGENTS.md
 tests/                                                       -> tests/AGENTS.md
 docs/            delay_report.md, figures/
 ```

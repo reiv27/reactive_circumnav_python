@@ -106,16 +106,42 @@ class FleetSeparationMetrics:
     final_separation: float
 
 
-def nearest_neighbour_distance(fleet: FleetResult) -> NDArray[np.float64]:
-    """Distance from each vehicle to its nearest neighbour, ``(robots, samples)``."""
+def pairwise_distance(fleet: FleetResult) -> NDArray[np.float64]:
+    """Distance between every two vehicles, ``(robots, robots, samples)``, [m].
+
+    The diagonal is ``inf`` so that a vehicle is never its own neighbour.
+    """
 
     positions = fleet.positions
-    if fleet.robot_count < 2:
-        return np.full(positions.shape[:2], math.inf)
     offsets = positions[:, None, :, :] - positions[None, :, :, :]
     distances = np.linalg.norm(offsets, axis=-1)
     distances[np.arange(fleet.robot_count), np.arange(fleet.robot_count)] = math.inf
-    return distances.min(axis=1)
+    return distances
+
+
+def nearest_neighbour_distance(fleet: FleetResult) -> NDArray[np.float64]:
+    """Distance from each vehicle to its nearest neighbour, ``(robots, samples)``."""
+
+    if fleet.robot_count < 2:
+        return np.full(fleet.positions.shape[:2], math.inf)
+    return pairwise_distance(fleet).min(axis=1)
+
+
+def obstacle_distance(
+    result: SimulationResult, obstacles: Sequence[Obstacle]
+) -> NDArray[np.float64]:
+    """True distance to the nearest obstacle surface at every sample, [m].
+
+    Uses the true geometry, not the sensor, like
+    :func:`obstacle_clearance_metrics`.
+    """
+
+    positions = result.state[:, :2]
+    distances = np.full(positions.shape[0], math.inf)
+    for obstacle in obstacles:
+        closest = np.array([obstacle.closest_point(position) for position in positions])
+        distances = np.minimum(distances, np.linalg.norm(closest - positions, axis=1))
+    return distances
 
 
 def fleet_separation_metrics(fleet: FleetResult) -> FleetSeparationMetrics:
@@ -175,6 +201,25 @@ def neighbour_visibility(
     in_range |= in_range.transpose(0, 2, 1)
     visible |= visible.transpose(0, 2, 1)
     return NeighbourVisibility(in_range=in_range, visible=visible)
+
+
+def nearest_visible_neighbour_distance(
+    fleet: FleetResult, visibility: NeighbourVisibility
+) -> NDArray[np.float64]:
+    """Distance to the nearest neighbour each vehicle *sees*, ``(robots, samples)``.
+
+    ``NaN`` where a vehicle sees nobody. Unlike
+    :func:`nearest_neighbour_distance` this is what a neighbour sensor would
+    report, so it jumps when the nearest neighbour hides behind a body.
+    """
+
+    if fleet.robot_count < 2:
+        return np.full(fleet.positions.shape[:2], math.nan)
+    seen = np.where(
+        visibility.visible.transpose(1, 2, 0), pairwise_distance(fleet), math.inf
+    ).min(axis=1)
+    seen[np.isinf(seen)] = math.nan
+    return seen
 
 
 @dataclass(frozen=True)

@@ -6,7 +6,9 @@ and controller logs. Requires matplotlib (the ``viz`` extra).
 One vehicle is the *focus*: it is drawn red, all others light blue, and the
 side panels show that vehicle only. From its point of view the map links it to
 each neighbour: a green link where it sees the neighbour, a dotted orange link
-where the neighbour is in range but hidden by the obstacle body. The bottom
+where the neighbour is in range but hidden by the obstacle body. The middle
+panel shows the distance to the nearest neighbour it sees (red, gaps where it
+sees nobody) over the true nearest distance (dashed). The bottom
 panel is a timeline per neighbour: light blue = visible, orange = hidden by the
 body, grey = out of range.
 """
@@ -34,7 +36,10 @@ from circumnav.analysis.animation import (
 from circumnav.analysis.metrics import (
     NeighbourVisibility,
     nearest_neighbour_distance,
+    nearest_visible_neighbour_distance,
     neighbour_visibility,
+    obstacle_distance,
+    pairwise_distance,
 )
 from circumnav.controllers.reactive import ReactiveCircumnavController
 from circumnav.models.obstacles import Obstacle
@@ -180,6 +185,7 @@ def build_fleet_animation(
     log_times = np.array([entry.time for entry in focus_log])
     deviation = np.array([entry.equidistant_deviation for entry in focus_log])
     neighbour = nearest_neighbour_distance(fleet)[focus]
+    seen_neighbour = nearest_visible_neighbour_distance(fleet, visibility)[focus]
     others, states = _line_of_sight_states(visibility, focus)
     rgba = _states_to_rgba(states)
     time = fleet.time
@@ -234,12 +240,16 @@ def build_fleet_animation(
         ax_dr, r"deviation from equidistant $d_R(t)$ [m]", log_times, deviation
     )
     (dr_line,) = ax_dr.plot([], [], color=FOCUS_COLOR, linewidth=1.2)
-    finite_gap = neighbour[np.isfinite(neighbour)]
+    finite_gap = np.concatenate([neighbour, seen_neighbour])
+    finite_gap = finite_gap[np.isfinite(finite_gap)]
     _setup_series_axis(
-        ax_gap, r"distance to nearest neighbour [m]", time,
+        ax_gap, r"nearest neighbour [m]: visible (red), true (dashed)", time,
         finite_gap if finite_gap.size else np.zeros(1),
     )
-    (gap_line,) = ax_gap.plot([], [], color=FOCUS_COLOR, linewidth=1.2)
+    (gap_line,) = ax_gap.plot(
+        [], [], color="black", linestyle="--", linewidth=0.9
+    )
+    (seen_line,) = ax_gap.plot([], [], color=FOCUS_COLOR, linewidth=1.4)
 
     image = ax_los.imshow(
         np.zeros_like(rgba), aspect="auto", interpolation="nearest",
@@ -249,12 +259,12 @@ def build_fleet_animation(
 
     def artists():
         return (
-            *trails.values(), *triangles.values(), dr_line, gap_line,
+            *trails.values(), *triangles.values(), dr_line, gap_line, seen_line,
             seen_links, hidden_links, image, hud_text,
         )
 
     def init():
-        for line in (*trails.values(), dr_line, gap_line):
+        for line in (*trails.values(), dr_line, gap_line, seen_line):
             line.set_data([], [])
         seen_links.set_segments([])
         hidden_links.set_segments([])
@@ -278,6 +288,7 @@ def build_fleet_animation(
         seen = log_times <= now
         dr_line.set_data(log_times[seen], deviation[seen])
         gap_line.set_data(time[: step + 1], neighbour[: step + 1])
+        seen_line.set_data(time[: step + 1], seen_neighbour[: step + 1])
         revealed = rgba.copy()
         revealed[:, step + 1 :, 3] = 0.0
         image.set_data(revealed)
@@ -289,7 +300,7 @@ def build_fleet_animation(
         )
         hud_text.set_text(
             rf"$t = {now:.1f}$ s,  {fleet.robot_count} vehicles,  "
-            rf"$R_s = {sensor.max_range:.0f}$ m,  red = vehicle $\#{focus}$"
+            rf"neighbour range ${sensor.max_range:.0f}$ m,  red = vehicle $\#{focus}$"
         )
         return artists()
 
@@ -333,8 +344,12 @@ def save_fleet_figure(
         ax_dr, r"deviation from equidistant $d_R(t)$ [m]", log_times, deviation
     )
     ax_dr.plot(log_times, deviation, color=FOCUS_COLOR, linewidth=0.9)
-    ax_gap.plot(fleet.time, neighbour, color=FOCUS_COLOR, linewidth=1.2)
-    ax_gap.set_title(r"distance to nearest neighbour [m]", fontsize=10)
+    ax_gap.plot(fleet.time, neighbour, color="black", linestyle="--", linewidth=0.9)
+    ax_gap.plot(
+        fleet.time, nearest_visible_neighbour_distance(fleet, visibility)[focus],
+        color=FOCUS_COLOR, linewidth=1.4,
+    )
+    ax_gap.set_title(r"nearest neighbour [m]: visible (red), true (dashed)", fontsize=10)
     ax_gap.set_xlabel(r"$t$ [s]", fontsize=8)
     ax_gap.tick_params(labelsize=7)
     ax_gap.grid(True, alpha=0.3)
@@ -343,6 +358,119 @@ def save_fleet_figure(
         extent=[float(fleet.time[0]), float(fleet.time[-1]), len(others), 0],
     )
     _setup_line_of_sight_axis(ax_los, fleet.time, others)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+
+
+def save_fleet_distance_figure(
+    fleet: FleetResult,
+    obstacles: Sequence[Obstacle],
+    path: str | Path,
+    safety_distance: float,
+    visibility: NeighbourVisibility,
+    focus: int = 0,
+) -> None:
+    """Distances over time: from ``focus`` to each neighbour; the nearest
+    neighbour ``focus`` actually sees against the true nearest; nearest
+    neighbour of every vehicle with the closest pair; true obstacle clearance
+    against ``ρ₀``.
+
+    With evenly spaced vehicles the nearest-neighbour curves coincide up to a
+    time shift, so the top panel splits the focus vehicle's view per neighbour.
+    """
+
+    if fleet.robot_count < 2:
+        raise ValueError(f"need at least 2 vehicles, got {fleet.robot_count}")
+    if not 0 <= focus < fleet.robot_count:
+        raise ValueError(f"focus must be in [0, {fleet.robot_count - 1}]")
+    time = fleet.time
+    pairs = pairwise_distance(fleet)
+    nearest = pairs.min(axis=1)
+    closest_pair = nearest.min(axis=0)
+    seen = nearest_visible_neighbour_distance(fleet, visibility)[focus]
+    clearance = np.stack([obstacle_distance(r, obstacles) for r in fleet.results])
+    others = [index for index in range(fleet.robot_count) if index != focus]
+    order = others + [focus]
+
+    fig, (ax_pairs, ax_seen, ax_nearest, ax_obstacle) = plt.subplots(
+        4, 1, figsize=(10.0, 11.2), sharex=True
+    )
+    palette = plt.get_cmap("viridis")(np.linspace(0.0, 0.85, len(others)))
+    for color, other in zip(palette, others):
+        ax_pairs.plot(
+            time, pairs[focus, other], color=color, linewidth=0.9,
+            label=rf"to $\#{other}$",
+        )
+    ax_pairs.plot(
+        time, nearest[focus], color=FOCUS_COLOR, linewidth=2.0, alpha=0.7,
+        label="nearest",
+    )
+    ax_pairs.set_title(rf"distance from vehicle $\#{focus}$ to each neighbour [m]",
+                       fontsize=10)
+    ax_pairs.legend(loc="upper right", fontsize=7, ncol=min(len(others) + 1, 6))
+
+    blind = np.isnan(seen)
+    ax_seen.fill_between(
+        time, 0.0, 1.0, where=blind, transform=ax_seen.get_xaxis_transform(),
+        color=_OUT_OF_RANGE_COLOR, alpha=0.6, linewidth=0.0, label="sees nobody",
+    )
+    ax_seen.plot(
+        time, nearest[focus], color="black", linestyle="--", linewidth=0.9,
+        label="true nearest",
+    )
+    ax_seen.plot(
+        time, seen, color=FOCUS_COLOR, linewidth=1.4, label="nearest visible",
+    )
+    ax_seen.set_title(
+        rf"nearest neighbour seen by vehicle $\#{focus}$ [m];  "
+        rf"sees nobody {100.0 * blind.mean():.0f} % of the run",
+        fontsize=10,
+    )
+    ax_seen.legend(loc="upper right", fontsize=7, ncol=3)
+
+    for index in order:
+        is_focus = index == focus
+        ax_nearest.plot(
+            time, nearest[index], color=FOCUS_COLOR if is_focus else OTHER_COLOR,
+            linewidth=1.2 if is_focus else 0.9, zorder=3 if is_focus else 2,
+        )
+    ax_nearest.plot(
+        time, closest_pair, color="black", linestyle="--", linewidth=1.0,
+        label="closest pair", zorder=4,
+    )
+    ax_nearest.plot([], [], color=FOCUS_COLOR, label=rf"vehicle $\#{focus}$")
+    ax_nearest.plot([], [], color=OTHER_COLOR, label="other vehicles")
+    ax_nearest.set_title(
+        r"distance to nearest neighbour, every vehicle [m];  closest pair: "
+        rf"min ${closest_pair.min():.2f}$, start ${closest_pair[0]:.2f}$, "
+        rf"end ${closest_pair[-1]:.2f}$",
+        fontsize=10,
+    )
+    ax_nearest.legend(loc="upper right", fontsize=7, ncol=3)
+
+    for index in order:
+        is_focus = index == focus
+        ax_obstacle.plot(
+            time, clearance[index], color=FOCUS_COLOR if is_focus else OTHER_COLOR,
+            linewidth=1.2 if is_focus else 0.9, zorder=3 if is_focus else 2,
+        )
+    ax_obstacle.axhline(
+        safety_distance, color="tab:blue", linestyle="--", linewidth=1.0,
+        label=rf"$\rho_0 = {safety_distance:.2f}$ m",
+    )
+    ax_obstacle.set_title(r"true distance to the obstacle surface $\rho(t)$ [m]",
+                          fontsize=10)
+    ax_obstacle.legend(loc="upper right", fontsize=7)
+    ax_obstacle.set_xlabel(r"$t$ [s]", fontsize=8)
+
+    for ax in (ax_pairs, ax_seen, ax_nearest):
+        bottom, top = ax.get_ylim()
+        ax.set_ylim(bottom, top + 0.2 * (top - bottom))
+    for ax in (ax_pairs, ax_seen, ax_nearest, ax_obstacle):
+        ax.tick_params(labelsize=7)
+        ax.grid(True, alpha=0.3)
+        ax.set_xlim(float(time[0]), float(time[-1]))
     fig.tight_layout()
     fig.savefig(path, dpi=130)
     plt.close(fig)

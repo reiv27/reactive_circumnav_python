@@ -5,8 +5,13 @@ import numpy as np
 import pytest
 
 from circumnav.analysis.metrics import (
+    NeighbourVisibility,
     fleet_separation_metrics,
     nearest_neighbour_distance,
+    nearest_visible_neighbour_distance,
+    neighbour_visibility,
+    obstacle_distance,
+    pairwise_distance,
 )
 from circumnav.models.obstacles import CircleObstacle, EllipseObstacle
 from circumnav.scenarios.fleet import FleetScenario, equidistant_start_poses
@@ -191,3 +196,70 @@ def test_a_single_vehicle_has_no_neighbours():
     metrics = fleet_separation_metrics(FleetResult((result_at(np.zeros((3, 2))),)))
 
     assert math.isinf(metrics.minimum_separation)
+
+
+def test_pairwise_distance_is_symmetric_with_an_infinite_diagonal():
+    a = result_at(np.array([[0.0, 0.0], [0.0, 0.0]]))
+    b = result_at(np.array([[3.0, 4.0], [1.0, 0.0]]))
+
+    distances = pairwise_distance(FleetResult((a, b)))
+
+    assert distances.shape == (2, 2, 2)
+    assert distances[0, 1] == pytest.approx([5.0, 1.0])
+    assert distances[1, 0] == pytest.approx(distances[0, 1])
+    assert np.isinf(distances[0, 0]).all() and np.isinf(distances[1, 1]).all()
+
+
+def test_obstacle_distance_is_measured_to_the_surface_at_every_sample():
+    circle = CircleObstacle(center=np.array([0.0, 0.0]), radius=2.0, obstacle_id=0)
+    result = result_at(np.array([[5.0, 0.0], [0.0, -3.0]]))
+
+    assert obstacle_distance(result, (circle,)) == pytest.approx([3.0, 1.0])
+
+
+def test_distance_figure_is_written(tmp_path):
+    pytest.importorskip("matplotlib")
+    from circumnav.analysis.fleet_animation import save_fleet_distance_figure
+
+    scenario = FleetScenario(ellipse_base(duration=2.0), robot_count=3)
+    fleet, _ = scenario.run()
+    visibility = neighbour_visibility(fleet, (ELLIPSE,), scenario.neighbour_sensor())
+    path = tmp_path / "distances.png"
+
+    save_fleet_distance_figure(
+        fleet, (ELLIPSE,), path, safety_distance=3.0, visibility=visibility, focus=1
+    )
+
+    assert path.stat().st_size > 0
+
+
+def test_distance_figure_needs_two_vehicles(tmp_path):
+    pytest.importorskip("matplotlib")
+    from circumnav.analysis.fleet_animation import save_fleet_distance_figure
+
+    fleet = FleetResult((result_at(np.zeros((3, 2))),))
+
+    with pytest.raises(ValueError, match="at least 2"):
+        save_fleet_distance_figure(
+            fleet, (CIRCLE,), tmp_path / "x.png", 3.0, NeighbourVisibility(
+                in_range=np.zeros((3, 1, 1), dtype=bool),
+                visible=np.zeros((3, 1, 1), dtype=bool),
+            )
+        )
+
+
+def test_nearest_visible_neighbour_skips_hidden_ones_and_is_nan_when_blind():
+    a = result_at(np.zeros((3, 2)))
+    b = result_at(np.full((3, 2), [3.0, 0.0]))
+    c = result_at(np.full((3, 2), [0.0, 5.0]))
+    visible = np.zeros((3, 3, 3), dtype=bool)
+    visible[0, 0, 1] = visible[0, 0, 2] = True  # sees both
+    visible[1, 0, 2] = True                     # the closer one is hidden
+    visible |= visible.transpose(0, 2, 1)       # sample 2: sees nobody
+    visibility = NeighbourVisibility(in_range=visible, visible=visible)
+
+    seen = nearest_visible_neighbour_distance(FleetResult((a, b, c)), visibility)
+
+    assert seen[0, :2] == pytest.approx([3.0, 5.0])
+    assert math.isnan(seen[0, 2])
+    assert nearest_neighbour_distance(FleetResult((a, b, c)))[0] == pytest.approx(3.0)

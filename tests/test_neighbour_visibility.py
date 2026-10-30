@@ -1,3 +1,5 @@
+import functools
+
 import numpy as np
 import pytest
 
@@ -189,3 +191,62 @@ def longest_hidden_episode(semi_axes):
 
 def test_a_more_elongated_ellipse_hides_the_neighbour_for_longer():
     assert longest_hidden_episode((7.0, 3.0)) > longest_hidden_episode((6.0, 3.0))
+
+
+@functools.lru_cache(maxsize=None)
+def demo_distances(neighbour_range):
+    """Demo fleet (4 vehicles, 7 x 3 ellipse), 15 s: about two passes of each end."""
+
+    from circumnav.analysis.metrics import (
+        nearest_neighbour_distance,
+        nearest_visible_neighbour_distance,
+    )
+    from circumnav.examples.fleet_circumnav import build_fleet_scenario
+
+    scenario = build_fleet_scenario(4, 15.0)
+    fleet, _ = scenario.run()
+    visibility = neighbour_visibility(
+        fleet, scenario.build_obstacles(), scenario.neighbour_sensor(neighbour_range)
+    )
+    return (
+        scenario,
+        nearest_neighbour_distance(fleet)[0],
+        nearest_visible_neighbour_distance(fleet, visibility)[0],
+    )
+
+
+def test_the_true_nearest_distance_moves_no_faster_than_twice_the_speed():
+    scenario, true, _ = demo_distances(None)
+    bound = 2.0 * scenario.base.forward_speed * scenario.base.integration_step
+
+    assert np.abs(np.diff(true)).max() <= bound
+
+
+def test_the_nearest_neighbour_is_hidden_at_its_closest_approach():
+    _, true, seen = demo_distances(None)
+    closest = int(np.argmin(true))
+
+    assert np.isnan(seen[closest])
+    assert np.nanmin(seen) > true.min() + 0.5
+
+
+def test_with_the_default_range_the_vehicle_loses_everyone_without_a_jump():
+    scenario, true, seen = demo_distances(None)
+    blind = np.isnan(seen)
+    both = ~blind[:-1] & ~blind[1:]
+    bound = 2.0 * scenario.base.forward_speed * scenario.base.integration_step
+
+    assert 0.0 < blind.mean() < 1.0
+    assert (~blind[:-1] & blind[1:]).sum() >= 2
+    assert np.abs(np.diff(seen))[both].max() <= bound
+    assert np.all(true[blind] < scenario.neighbour_sensor().max_range)
+
+
+def test_with_a_long_range_the_visible_distance_jumps_but_the_true_one_does_not():
+    scenario, true, seen = demo_distances(100.0)
+    bound = 2.0 * scenario.base.forward_speed * scenario.base.integration_step
+
+    assert not np.isnan(seen).any()
+    assert np.abs(np.diff(seen)).max() > 1.0
+    assert np.abs(np.diff(true)).max() <= bound
+    assert np.all(seen >= true)

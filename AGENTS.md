@@ -13,8 +13,13 @@ obstacles (circles, ellipses, segments). It is a control-engineering research
 environment: the law is fixed, everything around it (timing, delays, obstacles,
 sensor, actuator) is meant to be varied and measured.
 
-Human-facing docs: [README.md](README.md) (usage guide),
-[docs/delay_report.md](docs/delay_report.md) (delay study, Russian).
+Human-facing docs (Russian unless noted): [README.md](README.md) (usage guide,
+English), [docs/delay_report.md](docs/delay_report.md) (delay study),
+[docs/predictor_report.md](docs/predictor_report.md) (sensing-delay predictor:
+results on `two_ellipses`), [docs/report.md](docs/report.md) (detailed model of
+the stand and how `PredictorController` fits into the loop),
+[docs/RL_plan.md](docs/RL_plan.md) (RL problem statement, a learning exercise),
+[plan_presentation.md](plan_presentation.md) (outreach talk plan).
 `README_CONTROL_SIMULATOR.md` and `README_SENSOR_MODEL.md` are design notes that
 predate the implementation; the code is the source of truth.
 
@@ -73,6 +78,10 @@ PYTHONPATH=src python3 -m circumnav.examples.reactive_circumnav --obstacle clust
 # delay experiments
 PYTHONPATH=src python3 -m circumnav.examples.delay_sweep --shape ellipse
 PYTHONPATH=src python3 -m circumnav.examples.delay_compare --shape cluster --speed 2
+
+# sensing-delay predictor
+PYTHONPATH=src python3 -m circumnav.examples.predictor_compare --no-video
+PYTHONPATH=src python3 -m circumnav.examples.predictor_report   # data for docs/predictor_report.md
 ```
 
 Runs of 60 s take seconds each; sweeps use a process pool (`--workers`). Anything
@@ -120,13 +129,15 @@ longer than the 2-minute tool timeout (video rendering) must run in the backgrou
 src/circumnav/
   models/        dubins.py, actuator.py, obstacles.py        -> models/AGENTS.md
   sensors/       base.py, circular.py                        -> sensors/AGENTS.md
-  controllers/   reactive.py (the law), delayed.py, ...      -> controllers/AGENTS.md
+  controllers/   reactive.py (the law), delayed.py,
+                 predictor.py, heading.py, open_loop.py      -> controllers/AGENTS.md
   simulation/    engine.py, result.py                        -> simulation/AGENTS.md
   scenarios/     reactive.py, heading.py                     -> scenarios/AGENTS.md
   analysis/      metrics.py, animation.py                    -> analysis/AGENTS.md
-  examples/      CLIs: demos, delay_sweep, delay_compare     -> examples/AGENTS.md
+  examples/      CLIs: demos, delay_sweep, delay_compare,
+                 predictor_compare, predictor_report         -> examples/AGENTS.md
 tests/                                                       -> tests/AGENTS.md
-docs/            delay_report.md, figures/
+docs/            delay_report.md, predictor_report.md, report.md, RL_plan.md, figures/
 ```
 
 ## Git history facts
@@ -135,3 +146,8 @@ docs/            delay_report.md, figures/
   `109a779`; the ROS 2 / Gazebo stack (`gazebo_sim/`) at `bbfa2b3`.
 - A local branch `develop` (4 commits) holds an earlier prototype with dynamic
   obstacles and α-speed sweep data; it is not merged. Do not delete it.
+- Topic branches (pushed to `origin`, not merged into `main`):
+  `predictor-report-two-ellipses` (`two_ellipses` scene, predictor reports),
+  `feature/fleet-ellipse` (independent multi-vehicle fleet on one ellipse,
+  neighbour line-of-sight visibility), `rl/ppo-ellipse-sketch` (RL exercise:
+  `CircumnavEnv` + PPO, `rl` extra).
